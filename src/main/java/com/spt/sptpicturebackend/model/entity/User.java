@@ -1,0 +1,76 @@
+package com.spt.sptpicturebackend.model.entity;
+
+import com.baomidou.mybatisplus.annotation.*;
+
+import java.io.Serializable;
+import java.util.Date;
+import lombok.Data;
+
+/**
+ * 用户表
+ * @author zhiyuan
+ * @TableName user
+ */
+@TableName(value ="user")
+@Data
+public class User implements Serializable {
+    /**
+     * 用户id
+     */
+    @TableId(type = IdType.ASSIGN_ID)
+    private Long id;
+
+    /**
+     * 用户名称
+     */
+    private String userName;
+
+    /**
+     * 用户账号
+     */
+    private String userAccount;
+
+    /**
+     * 用户密码
+     */
+    private String userPassword;
+
+    /**
+     * 用户头像
+     */
+    private String userAvatar;
+
+    /**
+     * 用户简介
+     */
+    private String userProfile;
+
+    /**
+     * 用户角色：user/admin
+     */
+    private String userRole;
+
+    /**
+     * 编辑时间
+     */
+    private Date editTime;
+
+    /**
+     * 创建时间
+     */
+    private Date createTime;
+
+    /**
+     * 更新时间
+     */
+    private Date updateTie;
+
+    /**
+     * 是否删除 0-不删除 1-删除
+     */
+    @TableLogic
+    private Integer isDelete;
+
+    @TableField(exist = false)
+    private static final long serialVersionUID = 1L;
+}
