@@ -1,4 +1,4 @@
-package com.spt.sptpicturebackend.model.request.user;
+package com.spt.sptpicturebackend.model.dto.user;
 
 import lombok.Data;
 
@@ -6,7 +6,7 @@ import lombok.Data;
  * @author zhiyuan
  */
 @Data
-public class UserRegisterRequest {
+public class UserLoginRequest {
 
     /**
      * 用户账号
@@ -17,9 +17,4 @@ public class UserRegisterRequest {
      * 用户密码
      */
     private String userPassword;
-
-    /**
-     * 校验密码
-     */
-    private String checkPassword;
 }

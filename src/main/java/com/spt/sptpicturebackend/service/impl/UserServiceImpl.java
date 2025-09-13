@@ -7,10 +7,16 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.spt.sptpicturebackend.constant.UserConstant;
 import com.spt.sptpicturebackend.exception.BusinessException;
 import com.spt.sptpicturebackend.exception.ErrorCode;
-import com.spt.sptpicturebackend.model.entity.User;
-import com.spt.sptpicturebackend.service.UserService;
 import com.spt.sptpicturebackend.mapper.UserMapper;
+import com.spt.sptpicturebackend.model.entity.User;
+import com.spt.sptpicturebackend.model.vo.UserVO;
+import com.spt.sptpicturebackend.service.UserService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+
+import javax.servlet.http.HttpServletRequest;
+
+import static com.spt.sptpicturebackend.constant.UserConstant.USER_LOGIN_STATE;
 
 /**
  * @author zhiyuan
@@ -66,6 +72,58 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
         // 4.返回新用户的 id
         return user.getId();
+    }
+
+    /**
+     *用户登录
+     *
+     * @param userAccount
+     * @param userPassword
+     * @param request
+     * @return 脱敏后的用户信息
+     */
+    @Override
+    public UserVO userLogin(String userAccount, String userPassword, HttpServletRequest request) {
+        // 1. 校验
+        // 非空
+        if (StrUtil.hasEmpty(userAccount, userPassword)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号和密码不能为空");
+        }
+        // 账号不小于 6 位，密码和校验密码不小于 8 位
+        if (userAccount.length() < 6) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号不能小于6位");
+        }
+        if (userPassword.length() < 8) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码或校验密码不能小于8位");
+        }
+        // 2. 比对数据库
+        String encryptPassword = DigestUtil.md5Hex(userPassword + UserConstant.SALT);
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("userAccount", userAccount);
+        queryWrapper.eq("userPassword", encryptPassword);
+        User user = this.getOne(queryWrapper);
+        if (user == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在或密码错误");
+        }
+        // 3. 保存用户登录态
+        request.getSession().setAttribute(USER_LOGIN_STATE, user);
+        // 4. 用户信息脱敏
+        UserVO userVO = new UserVO();
+        BeanUtils.copyProperties(user,userVO);
+        // 5. 返回脱敏后的用户信息
+        return userVO;
+    }
+
+    /**
+     * 用户注销
+     *
+     * @param request
+     * @return
+     */
+    @Override
+    public boolean userLogout(HttpServletRequest request){
+        request.getSession().removeAttribute(USER_LOGIN_STATE);
+        return true;
     }
 }
 
