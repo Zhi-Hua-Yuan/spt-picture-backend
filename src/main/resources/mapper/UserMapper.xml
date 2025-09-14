@@ -14,12 +14,12 @@
             <result property="userRole" column="userRole" />
             <result property="editTime" column="editTime" />
             <result property="createTime" column="createTime" />
-            <result property="updateTie" column="updateTie" />
+            <result property="updateTime" column="updateTime" />
             <result property="isDelete" column="isDelete" />
     </resultMap>
 
     <sql id="Base_Column_List">
         id,userName,userAccount,userPassword,userAvatar,userProfile,
-        userRole,editTime,createTime,updateTie,isDelete
+        userRole,editTime,createTime,updateTime,isDelete
     </sql>
 </mapper>

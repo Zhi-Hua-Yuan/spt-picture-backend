@@ -6,6 +6,8 @@ import com.spt.sptpicturebackend.exception.BusinessException;
 import com.spt.sptpicturebackend.exception.ErrorCode;
 import com.spt.sptpicturebackend.model.dto.user.UserLoginRequest;
 import com.spt.sptpicturebackend.model.dto.user.UserRegisterRequest;
+import com.spt.sptpicturebackend.model.entity.User;
+import com.spt.sptpicturebackend.model.vo.LoginUserVO;
 import com.spt.sptpicturebackend.model.vo.UserVO;
 import com.spt.sptpicturebackend.service.UserService;
 import org.springframework.web.bind.annotation.*;
@@ -73,4 +75,16 @@ public class UserController {
         return ResultUtils.success(result);
     }
 
+    /**
+     * 获取当前登录用户
+     *
+     * @param request
+     * @return
+     */
+    @GetMapping("/get/login")
+    public BaseResponse<LoginUserVO> getLoginUser(HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        LoginUserVO loginUserVO = userService.getLoginUserVO(loginUser);
+        return ResultUtils.success(loginUserVO);
+    }
 }

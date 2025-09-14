@@ -2,6 +2,7 @@ package com.spt.sptpicturebackend.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.spt.sptpicturebackend.model.entity.User;
+import com.spt.sptpicturebackend.model.vo.LoginUserVO;
 import com.spt.sptpicturebackend.model.vo.UserVO;
 
 import javax.servlet.http.HttpServletRequest;
@@ -40,4 +41,20 @@ public interface UserService extends IService<User> {
      * @return
      */
     boolean userLogout(HttpServletRequest request);
+
+    /**
+     * 获得当前登录用户的脱敏信息
+     *
+     * @param user
+     * @return
+     */
+    LoginUserVO getLoginUserVO(User user);
+
+    /**
+     * 获取当前登录用户的详细信息
+     *
+     * @param request
+     * @return
+     */
+    User getLoginUser(HttpServletRequest request);
 }

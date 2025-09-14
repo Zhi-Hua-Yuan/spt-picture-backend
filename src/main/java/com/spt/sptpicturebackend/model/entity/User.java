@@ -64,7 +64,7 @@ public class User implements Serializable {
     /**
      * 更新时间
      */
-    private Date updateTie;
+    private Date updateTime;
 
     /**
      * 是否删除 0-不删除 1-删除

@@ -3,15 +3,25 @@ package com.spt.sptpicturebackend.constant;
 /**
  * @author zhiyuan
  */
-public class UserConstant {
+public interface UserConstant {
 
     /**
      * 用户密码加密盐值
      */
-    public static final String SALT = "spt";
+    String SALT = "spt";
 
     /**
      * 用户登录态键
      */
-    public static final String USER_LOGIN_STATE = "userLoginState";
+    String USER_LOGIN_STATE = "userLoginState";
+
+    /**
+     * 默认权限 普通用户
+     */
+    String DEFAULT_ROLE = "user";
+
+    /**
+     * 管理员权限
+     */
+    String ADMIN_ROLE = "admin";
 }

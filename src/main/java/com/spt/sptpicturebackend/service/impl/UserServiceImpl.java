@@ -9,6 +9,7 @@ import com.spt.sptpicturebackend.exception.BusinessException;
 import com.spt.sptpicturebackend.exception.ErrorCode;
 import com.spt.sptpicturebackend.mapper.UserMapper;
 import com.spt.sptpicturebackend.model.entity.User;
+import com.spt.sptpicturebackend.model.vo.LoginUserVO;
 import com.spt.sptpicturebackend.model.vo.UserVO;
 import com.spt.sptpicturebackend.service.UserService;
 import org.springframework.beans.BeanUtils;
@@ -75,7 +76,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     /**
-     *用户登录
+     * 用户登录
      *
      * @param userAccount
      * @param userPassword
@@ -109,7 +110,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         request.getSession().setAttribute(USER_LOGIN_STATE, user);
         // 4. 用户信息脱敏
         UserVO userVO = new UserVO();
-        BeanUtils.copyProperties(user,userVO);
+        BeanUtils.copyProperties(user, userVO);
         // 5. 返回脱敏后的用户信息
         return userVO;
     }
@@ -121,9 +122,46 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      * @return
      */
     @Override
-    public boolean userLogout(HttpServletRequest request){
+    public boolean userLogout(HttpServletRequest request) {
         request.getSession().removeAttribute(USER_LOGIN_STATE);
         return true;
+    }
+
+    /**
+     * 获得脱敏后的登录用户信息
+     *
+     * @param user
+     * @return
+     */
+    @Override
+    public LoginUserVO getLoginUserVO(User user) {
+        if (user == null) {
+            return null;
+        }
+        LoginUserVO loginUserVO = new LoginUserVO();
+        BeanUtils.copyProperties(user, loginUserVO);
+        return loginUserVO;
+    }
+
+    /**
+     * 获取当前登录用户的详细信息
+     *
+     * @param request
+     * @return
+     */
+    @Override
+    public User getLoginUser(HttpServletRequest request) {
+        // 判断是否已登录
+        if (request == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
+        User currentUser = (User) userObj;
+        if (currentUser == null || currentUser.getId() == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        // 这里追求更完正确的答案，所以选择继续查询数据库，来拿信息
+        return this.getById(currentUser.getId());
     }
 }
 
