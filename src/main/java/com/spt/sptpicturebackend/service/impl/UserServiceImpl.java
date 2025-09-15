@@ -1,5 +1,6 @@
 package com.spt.sptpicturebackend.service.impl;
 
+import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -7,7 +8,9 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.spt.sptpicturebackend.constant.UserConstant;
 import com.spt.sptpicturebackend.exception.BusinessException;
 import com.spt.sptpicturebackend.exception.ErrorCode;
+import com.spt.sptpicturebackend.exception.ThrowUtils;
 import com.spt.sptpicturebackend.mapper.UserMapper;
+import com.spt.sptpicturebackend.model.dto.user.UserQueryRequest;
 import com.spt.sptpicturebackend.model.entity.User;
 import com.spt.sptpicturebackend.model.vo.LoginUserVO;
 import com.spt.sptpicturebackend.model.vo.UserVO;
@@ -16,6 +19,10 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpServletRequest;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.spt.sptpicturebackend.constant.UserConstant.USER_LOGIN_STATE;
 
@@ -128,7 +135,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     /**
-     * 获得脱敏后的登录用户信息
+     * 获取当前登录用户的脱敏信息
      *
      * @param user
      * @return
@@ -141,6 +148,36 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         LoginUserVO loginUserVO = new LoginUserVO();
         BeanUtils.copyProperties(user, loginUserVO);
         return loginUserVO;
+    }
+
+    /**
+     * 用户信息脱敏
+     *
+     * @param user
+     * @return
+     */
+    @Override
+    public UserVO getUserVO(User user) {
+        if (user == null) {
+            return null;
+        }
+        UserVO userVO = new UserVO();
+        BeanUtils.copyProperties(user, userVO);
+        return userVO;
+    }
+
+    /**
+     * 用户列表脱敏
+     *
+     * @param userList
+     * @return
+     */
+    @Override
+    public List<UserVO> getUserVOList(List<User> userList) {
+        if (ObjUtil.isEmpty(userList)) {
+            return new ArrayList<>();
+        }
+        return userList.stream().map(this::getUserVO).collect(Collectors.toList());
     }
 
     /**
@@ -162,6 +199,52 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
         // 这里追求更完正确的答案，所以选择继续查询数据库，来拿信息
         return this.getById(currentUser.getId());
+    }
+
+    /**
+     * 添加用户
+     *
+     * @param user
+     * @return
+     */
+    @Override
+    public long addUser(User user) {
+        // 默认密码为 12345678
+        String defaultPassword = "12345678";
+        String encryptPassword = DigestUtil.md5Hex(defaultPassword + UserConstant.SALT);
+        user.setUserPassword(encryptPassword);
+        boolean result = this.save(user);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        return user.getId();
+    }
+
+    /**
+     * 获取查询包装类
+     *
+     * @param userQueryRequest
+     * @return
+     */
+    @Override
+    public QueryWrapper<User> getQueryWrapper(UserQueryRequest userQueryRequest) {
+        if (userQueryRequest == null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数为空");
+        }
+        Long id = userQueryRequest.getId();
+        String userName = userQueryRequest.getUserName();
+        String userAccount = userQueryRequest.getUserAccount();
+        String userProfile = userQueryRequest.getUserProfile();
+        String userRole = userQueryRequest.getUserRole();
+        String sortFiled = userQueryRequest.getSortFiled();
+        String sortOrder = userQueryRequest.getSortOrder();
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq(id != null && id > 0, "id", id);
+        queryWrapper.eq(StrUtil.isNotBlank(userRole), "userRole", userRole);
+        queryWrapper.like(StrUtil.isNotBlank(userName), "userName", userName);
+        queryWrapper.like(StrUtil.isNotBlank(userAccount), "userAccount", userAccount);
+        queryWrapper.like(StrUtil.isNotBlank(userProfile), "userProfile", userProfile);
+        queryWrapper.orderBy(StrUtil.isNotEmpty(sortFiled),sortOrder.equals("ascend"), sortFiled);
+        return queryWrapper;
+
     }
 }
 

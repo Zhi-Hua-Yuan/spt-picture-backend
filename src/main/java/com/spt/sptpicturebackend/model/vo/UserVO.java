@@ -2,6 +2,7 @@ package com.spt.sptpicturebackend.model.vo;
 
 import lombok.Data;
 
+import java.io.Serializable;
 import java.util.Date;
 
 /**
@@ -9,7 +10,7 @@ import java.util.Date;
  * @author zhiyuan
  */
 @Data
-public class UserVO {
+public class UserVO implements Serializable {
 
     /**
      * 用户id
@@ -45,5 +46,7 @@ public class UserVO {
      * 创建时间
      */
     private Date createTime;
+
+    private static final long serialVersionUID = 1L;
 
 }
