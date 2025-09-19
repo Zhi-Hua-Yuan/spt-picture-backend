@@ -1,0 +1,7 @@
+cos:
+  client:
+    secretId: AKID64rTr21ub7UhhWBf0HOTRDl6D6mESTGp
+    secretKey: PaaOzQegXBcqreDYgbJnEWbTArR2d3GF
+    region: ap-guangzhou
+    bucketName: spt-picture-1340025667
+    host: https://spt-picture-1340025667.cos.ap-guangzhou.myqcloud.com

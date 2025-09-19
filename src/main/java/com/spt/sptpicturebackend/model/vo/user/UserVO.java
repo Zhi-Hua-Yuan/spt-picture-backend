@@ -1,4 +1,4 @@
-package com.spt.sptpicturebackend.model.vo;
+package com.spt.sptpicturebackend.model.vo.user;
 
 import lombok.Data;
 
@@ -6,26 +6,26 @@ import java.io.Serializable;
 import java.util.Date;
 
 /**
- * 已登录用户视图（脱敏）
+ * 用户视图（脱敏）
  * @author zhiyuan
  */
 @Data
-public class LoginUserVO implements Serializable {
+public class UserVO implements Serializable {
 
     /**
-     * id
+     * 用户id
      */
     private Long id;
 
     /**
-     * 账号
-     */
-    private String userAccount;
-
-    /**
-     * 用户昵称
+     * 用户名称
      */
     private String userName;
+
+    /**
+     * 用户账号
+     */
+    private String userAccount;
 
     /**
      * 用户头像
@@ -43,19 +43,10 @@ public class LoginUserVO implements Serializable {
     private String userRole;
 
     /**
-     * 编辑时间
-     */
-    private Date editTime;
-
-    /**
      * 创建时间
      */
     private Date createTime;
 
-    /**
-     * 更新时间
-     */
-    private Date updateTime;
-
     private static final long serialVersionUID = 1L;
+
 }

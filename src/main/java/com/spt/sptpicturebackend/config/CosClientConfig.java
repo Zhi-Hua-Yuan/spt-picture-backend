@@ -26,6 +26,8 @@ public class CosClientConfig {
 
     private String region;
 
+    private String host;
+
     @Bean
     COSClient cosClient() {
         // 设置用户身份信息
