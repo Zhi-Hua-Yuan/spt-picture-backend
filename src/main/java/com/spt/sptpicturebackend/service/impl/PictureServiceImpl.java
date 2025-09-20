@@ -45,8 +45,6 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
     @Resource
     private UserService userService;
-    @Autowired
-    private PictureService pictureService;
 
     /**
      * 上传图片
