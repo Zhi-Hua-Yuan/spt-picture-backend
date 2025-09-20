@@ -22,6 +22,7 @@ import java.io.IOException;
 /**
  * @author zhiyuan
  */
+@Deprecated
 @RestController
 @RequestMapping("/file")
 @Slf4j

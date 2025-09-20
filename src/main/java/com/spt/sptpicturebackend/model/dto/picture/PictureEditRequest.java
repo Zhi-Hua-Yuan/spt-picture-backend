@@ -3,6 +3,7 @@ package com.spt.sptpicturebackend.model.dto.picture;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
 
 /**
  * @author zhiyuan
@@ -26,15 +27,14 @@ public class PictureEditRequest implements Serializable {
     private String introduction;
 
     /**
-     * 图片分类
+     * 分类
      */
     private String category;
 
     /**
-     * 图片标签 JSON数组
+     * 标签
      */
-    private String tags;
+    private List<String> tags;
 
     private static final long serialVersionUID = 1L;
-
 }

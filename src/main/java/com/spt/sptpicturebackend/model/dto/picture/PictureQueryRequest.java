@@ -1,15 +1,11 @@
 package com.spt.sptpicturebackend.model.dto.picture;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.spt.sptpicturebackend.common.PageRequest;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 import java.io.Serializable;
-import java.util.Date;
+import java.util.List;
 
 /**
  * @author zhiyuan
@@ -34,17 +30,17 @@ public class PictureQueryRequest extends PageRequest implements Serializable {
     private String introduction;
 
     /**
-     * 图片分类
+     * 分类
      */
     private String category;
 
     /**
-     * 图片标签 JSON数组
+     * 标签
      */
-    private String tags;
+    private List<String> tags;
 
     /**
-     * 图片大小
+     * 文件体积
      */
     private Long picSize;
 
@@ -59,7 +55,7 @@ public class PictureQueryRequest extends PageRequest implements Serializable {
     private Integer picHeight;
 
     /**
-     * 图片宽高比例
+     * 图片比例
      */
     private Double picScale;
 
@@ -69,14 +65,14 @@ public class PictureQueryRequest extends PageRequest implements Serializable {
     private String picFormat;
 
     /**
-     * 创建用户id
+     * 搜索词（同时搜名称、简介等）
      */
-    private Long userId;
+    private String searchText;
 
     /**
-     * 编辑时间
+     * 用户 id
      */
-    private Date editTime;
+    private Long userId;
 
     private static final long serialVersionUID = 1L;
 }

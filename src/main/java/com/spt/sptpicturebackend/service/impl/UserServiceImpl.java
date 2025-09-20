@@ -226,7 +226,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      */
     @Override
     public QueryWrapper<User> getQueryWrapper(UserQueryRequest userQueryRequest) {
-        if (userQueryRequest == null){
+        if (userQueryRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数为空");
         }
         Long id = userQueryRequest.getId();
@@ -242,9 +242,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         queryWrapper.like(StrUtil.isNotBlank(userName), "userName", userName);
         queryWrapper.like(StrUtil.isNotBlank(userAccount), "userAccount", userAccount);
         queryWrapper.like(StrUtil.isNotBlank(userProfile), "userProfile", userProfile);
-        queryWrapper.orderBy(StrUtil.isNotEmpty(sortFiled),sortOrder.equals("ascend"), sortFiled);
+        queryWrapper.orderBy(StrUtil.isNotEmpty(sortFiled), "ascend".equals(sortOrder), sortFiled);
         return queryWrapper;
+    }
 
+    /**
+     * 是否为管理员
+     *
+     * @param user
+     * @return
+     */
+    @Override
+    public boolean isAdmin(User user) {
+        return user != null && user.getUserRole().equals(UserConstant.ADMIN_ROLE);
     }
 }
 
