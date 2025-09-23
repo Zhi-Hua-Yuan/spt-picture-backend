@@ -9,6 +9,9 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.spt.sptpicturebackend.exception.BusinessException;
 import com.spt.sptpicturebackend.exception.ErrorCode;
 import com.spt.sptpicturebackend.exception.ThrowUtils;
+import com.spt.sptpicturebackend.manager.upload.FilePictureUpload;
+import com.spt.sptpicturebackend.manager.upload.PictureUploadTemplate;
+import com.spt.sptpicturebackend.manager.upload.UrlPictureUpload;
 import com.spt.sptpicturebackend.mapper.PictureMapper;
 import com.spt.sptpicturebackend.model.dto.file.UploadPictureResult;
 import com.spt.sptpicturebackend.model.dto.picture.PictureQueryRequest;
@@ -41,7 +44,10 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         implements PictureService {
 
     @Resource
-    private FileService fileService;
+    private FilePictureUpload filePictureUpload;
+
+    @Resource
+    private UrlPictureUpload urlPictureUpload;
 
     @Resource
     private UserService userService;
@@ -49,13 +55,13 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     /**
      * 上传图片
      *
-     * @param multipartFile
+     * @param inputSource
      * @param pictureUploadRequest
      * @param loginUser
      * @return
      */
     @Override
-    public PictureVO uploadPicture(MultipartFile multipartFile, PictureUploadRequest pictureUploadRequest, User loginUser) {
+    public PictureVO uploadPicture(Object inputSource, PictureUploadRequest pictureUploadRequest, User loginUser) {
         ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR, "未登录");
         // 1.判断是增加图片还是更新图片
         Long pictureId = null;
@@ -75,7 +81,11 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         // 2.上传图片
         String userId = loginUser.getId().toString();
         String uploadPathPrefix = String.format("picture/%s", userId);
-        UploadPictureResult uploadPictureResult = fileService.uploadPicture(multipartFile, uploadPathPrefix);
+        PictureUploadTemplate pictureUploadTemplate = filePictureUpload;
+        if (inputSource instanceof String) {
+            pictureUploadTemplate = urlPictureUpload;
+        }
+        UploadPictureResult uploadPictureResult = pictureUploadTemplate.uploadPicture(inputSource, uploadPathPrefix);
         // 3.解析图片
         String picName = uploadPictureResult.getPicName();
         int picWidth = uploadPictureResult.getPicWidth();
@@ -94,7 +104,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         picture.setPicFormat(picFormat);
         picture.setUserId(loginUser.getId());
         // 补充审核参数
-        fillReviewParams( picture,loginUser);
+        fillReviewParams(picture, loginUser);
         // 4.更新或新增图片
         if (pictureId != null) {
             // 如果是更新图片，需要补充 id 和 编辑时间
@@ -261,14 +271,14 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         Long id = pictureReviewRequest.getId();
         Integer reviewStatus = pictureReviewRequest.getReviewStatus();
         PictureReviewStatusEnum reviewStatusEnum = PictureReviewStatusEnum.getEnumByValue(reviewStatus);
-        if (id == null || reviewStatusEnum == null || PictureReviewStatusEnum.REVIEWING.equals(reviewStatusEnum)){
+        if (id == null || reviewStatusEnum == null || PictureReviewStatusEnum.REVIEWING.equals(reviewStatusEnum)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         // 判断是否存在
-        Picture oldPicture = this.getById( id);
+        Picture oldPicture = this.getById(id);
         ThrowUtils.throwIf(oldPicture == null, ErrorCode.NOT_FOUND_ERROR);
         // 已是该状态
-        if (oldPicture.getReviewStatus().equals(reviewStatus)){
+        if (oldPicture.getReviewStatus().equals(reviewStatus)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请勿重复审核");
         }
         // 更新审核状态
