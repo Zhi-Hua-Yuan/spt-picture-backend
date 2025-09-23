@@ -16,5 +16,11 @@ public class PictureUploadByBatchRequest {
     /**  
      * 抓取数量  
      */  
-    private Integer count = 10;  
+    private Integer count = 10;
+
+    /**
+     * 名称前缀
+     */
+    private String namePrefix;
+
 }
