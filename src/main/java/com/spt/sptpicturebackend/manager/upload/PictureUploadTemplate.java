@@ -1,5 +1,6 @@
 package com.spt.sptpicturebackend.manager.upload;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.IdUtil;
@@ -64,7 +65,12 @@ public abstract class PictureUploadTemplate {
             List<CIObject> objectList = putObjectResult.getCiUploadResult().getProcessResults().getObjectList();
             if (ObjUtil.isNotEmpty(objectList)) {
                 CIObject compressedCiObject = objectList.get(0);
-                return getUploadPictureResult(originalFilename,compressedCiObject);
+                // 缩略图默认等于压缩图
+                CIObject thumbnailCiObject = objectList.get(0);
+                if (objectList.size() > 1){
+                    thumbnailCiObject = objectList.get(1);
+                }
+                return getUploadPictureResult(originalFilename,compressedCiObject,thumbnailCiObject);
             }
             // 5.封装返回结果
             return getUploadPictureResult(imageInfo, originalFilename, file, filePath);
@@ -107,7 +113,7 @@ public abstract class PictureUploadTemplate {
         return uploadPictureResult;
     }
 
-    private UploadPictureResult getUploadPictureResult(String originalFilename, CIObject compressedCiObject) {
+    private UploadPictureResult getUploadPictureResult(String originalFilename, CIObject compressedCiObject,CIObject thumbnailCiObject) {
         UploadPictureResult uploadPictureResult = new UploadPictureResult();
         int picWidth = compressedCiObject.getWidth();
         int picHeight = compressedCiObject.getHeight();
@@ -119,6 +125,7 @@ public abstract class PictureUploadTemplate {
         uploadPictureResult.setPicFormat(compressedCiObject.getFormat());
         uploadPictureResult.setPicSize(Long.valueOf(compressedCiObject.getSize()));
         uploadPictureResult.setUrl(cosClientConfig.getHost() + "/" + compressedCiObject.getKey());
+        uploadPictureResult.setThumbnailUrl(cosClientConfig.getHost() + "/" + thumbnailCiObject.getKey());
         return uploadPictureResult;
     }
 

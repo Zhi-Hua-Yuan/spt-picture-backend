@@ -2,6 +2,8 @@ package com.spt.sptpicturebackend.manager;
 
 import cn.hutool.core.io.FileUtil;
 import com.qcloud.cos.COSClient;
+import com.qcloud.cos.exception.CosClientException;
+import com.qcloud.cos.exception.CosServiceException;
 import com.qcloud.cos.model.COSObject;
 import com.qcloud.cos.model.GetObjectRequest;
 import com.qcloud.cos.model.PutObjectRequest;
@@ -48,6 +50,16 @@ public class CosManager {
         compressRule.setBucket(cosClientConfig.getBucketName());
         compressRule.setRule("imageMogr2/format/webp");
         rules.add(compressRule);
+        // 缩略图处理
+        // 缩略图处理，仅对 > 20 KB 的图片生成缩略图
+        if (file.length() > 2 * 1024) {
+            PicOperations.Rule thumbnailRule = new PicOperations.Rule();
+            String thumbnailKey = FileUtil.mainName(key) + "_thumbnail" + FileUtil.getSuffix(key);
+            thumbnailRule.setFileId(thumbnailKey);
+            thumbnailRule.setBucket(cosClientConfig.getBucketName());
+            thumbnailRule.setRule(String.format("imageMogr2/thumbnail/%sx%s", 128, 128));
+            rules.add(thumbnailRule);
+        }
         // 构造处理参数
         picOperations.setRules(rules);
         putObjectRequest.setPicOperations(picOperations);
@@ -63,5 +75,9 @@ public class CosManager {
     public COSObject getObject(String key) {
         GetObjectRequest getObjectRequest = new GetObjectRequest(cosClientConfig.getBucketName(), key);
         return cosClient.getObject(getObjectRequest);
+    }
+
+    public void deleteObject(String key) throws CosClientException, CosServiceException {
+        cosClient.deleteObject(cosClientConfig.getBucketName(), key);
     }
 }

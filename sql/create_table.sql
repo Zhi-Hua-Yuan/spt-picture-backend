@@ -53,3 +53,7 @@ alter table picture
 
 -- 创建基于 reviewStatus 列的索引
 create index idx_reviewStatus on picture (reviewStatus);
+
+-- picture 新增 缩略图字段
+alter table picture
+    add column thumbnailUrl varchar(512) null comment '缩略图 url';

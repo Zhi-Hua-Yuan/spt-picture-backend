@@ -97,6 +97,11 @@ public class Picture implements Serializable {
     private Integer isDelete;
 
     /**
+     * 缩略图 url
+     */
+    private String thumbnailUrl;
+
+    /**
      * 审核状态：0-待审核 1-审核通过 2-审核未通过
      */
     private Integer reviewStatus;
