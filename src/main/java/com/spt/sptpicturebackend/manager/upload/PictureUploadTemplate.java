@@ -4,7 +4,9 @@ import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.NumberUtil;
+import cn.hutool.core.util.ObjUtil;
 import com.qcloud.cos.model.PutObjectResult;
+import com.qcloud.cos.model.ciModel.persistence.CIObject;
 import com.qcloud.cos.model.ciModel.persistence.ImageInfo;
 import com.spt.sptpicturebackend.config.CosClientConfig;
 import com.spt.sptpicturebackend.exception.BusinessException;
@@ -18,6 +20,7 @@ import javax.annotation.Resource;
 import java.io.File;
 import java.io.IOException;
 import java.util.Date;
+import java.util.List;
 
 /**
  * @author zhiyuan
@@ -55,8 +58,14 @@ public abstract class PictureUploadTemplate {
 
             // 4. 上传文件到对象存储
             PutObjectResult putObjectResult = cosManager.putObject(filePath, file);
+            // 原图信息
             ImageInfo imageInfo = putObjectResult.getCiUploadResult().getOriginalInfo().getImageInfo();
-
+            // 图片处理后的信息
+            List<CIObject> objectList = putObjectResult.getCiUploadResult().getProcessResults().getObjectList();
+            if (ObjUtil.isNotEmpty(objectList)) {
+                CIObject compressedCiObject = objectList.get(0);
+                return getUploadPictureResult(originalFilename,compressedCiObject);
+            }
             // 5.封装返回结果
             return getUploadPictureResult(imageInfo, originalFilename, file, filePath);
         } catch (IOException e) {
@@ -95,6 +104,21 @@ public abstract class PictureUploadTemplate {
         uploadPictureResult.setPicFormat(imageInfo.getFormat());
         uploadPictureResult.setPicSize(FileUtil.size(file));
         uploadPictureResult.setUrl(cosClientConfig.getHost() + "/" + filePath);
+        return uploadPictureResult;
+    }
+
+    private UploadPictureResult getUploadPictureResult(String originalFilename, CIObject compressedCiObject) {
+        UploadPictureResult uploadPictureResult = new UploadPictureResult();
+        int picWidth = compressedCiObject.getWidth();
+        int picHeight = compressedCiObject.getHeight();
+        double picScale = NumberUtil.round(picWidth * 1.0 / picHeight, 2).doubleValue();
+        uploadPictureResult.setPicName(FileUtil.mainName(originalFilename));
+        uploadPictureResult.setPicWidth(picWidth);
+        uploadPictureResult.setPicHeight(picHeight);
+        uploadPictureResult.setPicScale(picScale);
+        uploadPictureResult.setPicFormat(compressedCiObject.getFormat());
+        uploadPictureResult.setPicSize(Long.valueOf(compressedCiObject.getSize()));
+        uploadPictureResult.setUrl(cosClientConfig.getHost() + "/" + compressedCiObject.getKey());
         return uploadPictureResult;
     }
 

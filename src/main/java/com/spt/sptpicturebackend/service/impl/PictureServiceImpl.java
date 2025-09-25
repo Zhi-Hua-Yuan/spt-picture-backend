@@ -88,7 +88,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         }
         // 2.上传图片
         String userId = loginUser.getId().toString();
-        String uploadPathPrefix = String.format("picture/%s", userId);
+        String uploadPathPrefix = String.format("public/%s", userId);
         PictureUploadTemplate pictureUploadTemplate = filePictureUpload;
         if (inputSource instanceof String) {
             pictureUploadTemplate = urlPictureUpload;
