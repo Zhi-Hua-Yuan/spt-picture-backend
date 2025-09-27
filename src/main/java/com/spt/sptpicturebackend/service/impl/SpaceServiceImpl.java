@@ -5,11 +5,14 @@ import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.spt.sptpicturebackend.common.BaseResponse;
+import com.spt.sptpicturebackend.common.ResultUtils;
 import com.spt.sptpicturebackend.exception.BusinessException;
 import com.spt.sptpicturebackend.exception.ErrorCode;
 import com.spt.sptpicturebackend.exception.ThrowUtils;
 import com.spt.sptpicturebackend.mapper.SpaceMapper;
 import com.spt.sptpicturebackend.model.dto.space.SpaceAddRequest;
+import com.spt.sptpicturebackend.model.dto.space.SpaceLevel;
 import com.spt.sptpicturebackend.model.dto.space.SpaceQueryRequest;
 import com.spt.sptpicturebackend.model.entity.Space;
 import com.spt.sptpicturebackend.model.entity.User;
@@ -20,13 +23,11 @@ import com.spt.sptpicturebackend.service.UserService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.bind.annotation.GetMapping;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -171,8 +172,6 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
         }
     }
 
-
-
     /**
      * 空间信息脱敏
      *
@@ -192,6 +191,19 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
         }
         return spaceVO;
     }
+
+    @GetMapping("/list/level")
+    public BaseResponse<List<SpaceLevel>> listSpaceLevel() {
+        List<SpaceLevel> spaceLevelList = Arrays.stream(SpaceLevelEnum.values()) // 获取所有枚举
+                .map(spaceLevelEnum -> new SpaceLevel(
+                        spaceLevelEnum.getValue(),
+                        spaceLevelEnum.getText(),
+                        spaceLevelEnum.getMaxCount(),
+                        spaceLevelEnum.getMaxSize()))
+                .collect(Collectors.toList());
+        return ResultUtils.success(spaceLevelList);
+    }
+
 
 }
 
