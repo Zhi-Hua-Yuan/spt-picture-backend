@@ -67,10 +67,10 @@ public abstract class PictureUploadTemplate {
                 CIObject compressedCiObject = objectList.get(0);
                 // 缩略图默认等于压缩图
                 CIObject thumbnailCiObject = objectList.get(0);
-                if (objectList.size() > 1){
+                if (objectList.size() > 1) {
                     thumbnailCiObject = objectList.get(1);
                 }
-                return getUploadPictureResult(originalFilename,compressedCiObject,thumbnailCiObject);
+                return getUploadPictureResult(originalFilename, compressedCiObject, thumbnailCiObject, imageInfo);
             }
             // 5.封装返回结果
             return getUploadPictureResult(imageInfo, originalFilename, file, filePath);
@@ -109,11 +109,12 @@ public abstract class PictureUploadTemplate {
         uploadPictureResult.setPicScale(picScale);
         uploadPictureResult.setPicFormat(imageInfo.getFormat());
         uploadPictureResult.setPicSize(FileUtil.size(file));
+        uploadPictureResult.setPicColor(imageInfo.getAve());
         uploadPictureResult.setUrl(cosClientConfig.getHost() + "/" + filePath);
         return uploadPictureResult;
     }
 
-    private UploadPictureResult getUploadPictureResult(String originalFilename, CIObject compressedCiObject,CIObject thumbnailCiObject) {
+    private UploadPictureResult getUploadPictureResult(String originalFilename, CIObject compressedCiObject, CIObject thumbnailCiObject, ImageInfo imageInfo) {
         UploadPictureResult uploadPictureResult = new UploadPictureResult();
         int picWidth = compressedCiObject.getWidth();
         int picHeight = compressedCiObject.getHeight();
@@ -124,6 +125,7 @@ public abstract class PictureUploadTemplate {
         uploadPictureResult.setPicScale(picScale);
         uploadPictureResult.setPicFormat(compressedCiObject.getFormat());
         uploadPictureResult.setPicSize(Long.valueOf(compressedCiObject.getSize()));
+        uploadPictureResult.setPicColor(imageInfo.getAve());
         uploadPictureResult.setUrl(cosClientConfig.getHost() + "/" + compressedCiObject.getKey());
         uploadPictureResult.setThumbnailUrl(cosClientConfig.getHost() + "/" + thumbnailCiObject.getKey());
         return uploadPictureResult;
@@ -140,6 +142,5 @@ public abstract class PictureUploadTemplate {
             }
         }
     }
-
 
 }

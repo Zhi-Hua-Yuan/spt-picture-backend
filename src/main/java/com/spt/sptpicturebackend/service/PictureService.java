@@ -113,6 +113,15 @@ public interface PictureService extends IService<Picture> {
     void deletePicture(long pictureId, User loginUser);
 
     /**
+     * 根据颜色搜索图片
+     *
+     * @param spaceId
+     * @param picColor
+     * @param loginUser
+     */
+    List<PictureVO> searchPictureByColor(Long spaceId,String picColor,User loginUser);
+
+    /**
      * 编辑图片
      *
      * @param pictureEditRequest

@@ -107,6 +107,11 @@ public class Picture implements Serializable {
     private Long spaceId;
 
     /**
+     * 图片主色调
+     */
+    private String picColor;
+
+    /**
      * 审核状态：0-待审核 1-审核通过 2-审核未通过
      */
     private Integer reviewStatus;

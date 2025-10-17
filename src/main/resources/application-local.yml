@@ -5,3 +5,8 @@ cos:
     region: ap-guangzhou
     bucketName: spt-picture-1340025667
     host: https://spt-picture-1340025667.cos.ap-guangzhou.myqcloud.com
+
+baidu:
+  client:
+    apiKey: SquVQyM60HCOiCT8jEDE1yYB
+    secretKey: atCl9hsTx4V2WySK7Gb6pA2baGtwXulY
