@@ -62,4 +62,6 @@ public interface SpaceService extends IService<Space> {
      */
     SpaceVO getSpaceVO(Space space, HttpServletRequest request);
 
+    void checkSpaceAuth(Space space, User loginUser);
+
 }

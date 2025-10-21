@@ -6,7 +6,6 @@ cos:
     bucketName: spt-picture-1340025667
     host: https://spt-picture-1340025667.cos.ap-guangzhou.myqcloud.com
 
-baidu:
-  client:
-    apiKey: SquVQyM60HCOiCT8jEDE1yYB
-    secretKey: atCl9hsTx4V2WySK7Gb6pA2baGtwXulY
+# 阿里云 AI 配置
+aliYunAi:
+  apiKey: sk-5b206a2cb8bd447d859a14b8c425454e

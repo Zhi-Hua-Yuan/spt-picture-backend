@@ -2,15 +2,15 @@ package com.spt.sptpicturebackend.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.spt.sptpicturebackend.api.aliyunai.model.CreateOutPaintingTaskResponse;
 import com.spt.sptpicturebackend.model.dto.picture.*;
 import com.spt.sptpicturebackend.model.entity.Picture;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.spt.sptpicturebackend.model.entity.User;
 import com.spt.sptpicturebackend.model.vo.picture.PictureVO;
-import com.spt.sptpicturebackend.model.vo.user.UserVO;
-import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
+import java.io.UnsupportedEncodingException;
 import java.util.List;
 
 /**
@@ -94,7 +94,7 @@ public interface PictureService extends IService<Picture> {
      *
      * @param oldPicture
      */
-     void clearPictureFile(Picture oldPicture);
+    void clearPictureFile(Picture oldPicture);
 
     /**
      * 检查图片权限
@@ -119,7 +119,7 @@ public interface PictureService extends IService<Picture> {
      * @param picColor
      * @param loginUser
      */
-    List<PictureVO> searchPictureByColor(Long spaceId,String picColor,User loginUser);
+    List<PictureVO> searchPictureByColor(Long spaceId, String picColor, User loginUser);
 
     /**
      * 编辑图片
@@ -135,5 +135,14 @@ public interface PictureService extends IService<Picture> {
      * @param pictureEditByBatchRequest
      * @param loginUser
      */
-    void editPictureByBatch(PictureEditByBatchRequest pictureEditByBatchRequest,User loginUser);
+    void editPictureByBatch(PictureEditByBatchRequest pictureEditByBatchRequest, User loginUser);
+
+    /**
+     * 创建 AI 扩图任务
+     *
+     * @param createPictureOutPaintingTaskRequest
+     * @param loginUser
+     * @return
+     */
+    CreateOutPaintingTaskResponse createOutPaintingTask(CreatePictureOutPaintingTaskRequest createPictureOutPaintingTaskRequest, User loginUser);
 }

@@ -192,18 +192,13 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
         return spaceVO;
     }
 
-    @GetMapping("/list/level")
-    public BaseResponse<List<SpaceLevel>> listSpaceLevel() {
-        List<SpaceLevel> spaceLevelList = Arrays.stream(SpaceLevelEnum.values()) // 获取所有枚举
-                .map(spaceLevelEnum -> new SpaceLevel(
-                        spaceLevelEnum.getValue(),
-                        spaceLevelEnum.getText(),
-                        spaceLevelEnum.getMaxCount(),
-                        spaceLevelEnum.getMaxSize()))
-                .collect(Collectors.toList());
-        return ResultUtils.success(spaceLevelList);
+    @Override
+    public void checkSpaceAuth(Space space, User loginUser) {
+        // 仅本人或者管理员有资格
+        if (!userService.isAdmin(loginUser) && !loginUser.getId().equals(space.getUserId())){
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+        }
     }
-
 
 }
 
