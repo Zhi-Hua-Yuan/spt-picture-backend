@@ -14,10 +14,10 @@ import com.spt.sptpicturebackend.model.vo.space.SpaceVO;
 import javax.servlet.http.HttpServletRequest;
 
 /**
-* @author zhiyuan
-* @description 针对表【space(空间)】的数据库操作Service
-* @createDate 2025-09-25 23:39:51
-*/
+ * @author zhiyuan
+ * @description 针对表【space(空间)】的数据库操作Service
+ * @createDate 2025-09-25 23:39:51
+ */
 public interface SpaceService extends IService<Space> {
 
     /**
@@ -44,7 +44,7 @@ public interface SpaceService extends IService<Space> {
      *
      * @param space
      */
-    void validSpace(Space space,boolean add);
+    void validSpace(Space space, boolean add);
 
     /**
      * 填充空间信息
@@ -62,6 +62,6 @@ public interface SpaceService extends IService<Space> {
      */
     SpaceVO getSpaceVO(Space space, HttpServletRequest request);
 
-    void checkSpaceAuth(Space space, User loginUser);
+    void checkSpaceAuth(User loginUser, Space space);
 
 }

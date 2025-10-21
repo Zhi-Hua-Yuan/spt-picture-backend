@@ -5,14 +5,11 @@ import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.spt.sptpicturebackend.common.BaseResponse;
-import com.spt.sptpicturebackend.common.ResultUtils;
 import com.spt.sptpicturebackend.exception.BusinessException;
 import com.spt.sptpicturebackend.exception.ErrorCode;
 import com.spt.sptpicturebackend.exception.ThrowUtils;
 import com.spt.sptpicturebackend.mapper.SpaceMapper;
 import com.spt.sptpicturebackend.model.dto.space.SpaceAddRequest;
-import com.spt.sptpicturebackend.model.dto.space.SpaceLevel;
 import com.spt.sptpicturebackend.model.dto.space.SpaceQueryRequest;
 import com.spt.sptpicturebackend.model.entity.Space;
 import com.spt.sptpicturebackend.model.entity.User;
@@ -23,11 +20,13 @@ import com.spt.sptpicturebackend.service.UserService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.web.bind.annotation.GetMapping;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -41,7 +40,7 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
 
     @Resource
     private UserService userService;
-    
+
     @Resource
     private TransactionTemplate transactionTemplate;
 
@@ -62,27 +61,27 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
     public long addSpace(SpaceAddRequest spaceAddRequest, User loginUser) {
         // 1.填充参数默认值
         Space space = new Space();
-        BeanUtils.copyProperties(spaceAddRequest,space);
+        BeanUtils.copyProperties(spaceAddRequest, space);
         // 默认值
-        if (StrUtil.isBlank(spaceAddRequest.getSpaceName())){
+        if (StrUtil.isBlank(spaceAddRequest.getSpaceName())) {
             space.setSpaceName("默认空间");
         }
-        if (spaceAddRequest.getSpaceLevel() == null){
+        if (spaceAddRequest.getSpaceLevel() == null) {
             space.setSpaceLevel(SpaceLevelEnum.COMMON.getValue());
         }
         // 填充数据
         this.fillSpaceBySpaceLevel(space);
         // 2.校验参数
-        this.validSpace(space,true);
+        this.validSpace(space, true);
         Long userId = loginUser.getId();
         space.setUserId(userId);
         // 3.校验权限，非管理员只能创建普通级别空间
-        if (!userService.isAdmin(loginUser) && SpaceLevelEnum.COMMON.getValue() != spaceAddRequest.getSpaceLevel()){
-            throw new BusinessException(ErrorCode.NO_AUTH_ERROR,"无权限创建指定级别的空间");
+        if (!userService.isAdmin(loginUser) && SpaceLevelEnum.COMMON.getValue() != spaceAddRequest.getSpaceLevel()) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限创建指定级别的空间");
         }
         // 4.控制同一个用户只能创建一个私有空间
         String lock = userId.toString().intern();
-        synchronized (lock){
+        synchronized (lock) {
             Long newSpaceId = transactionTemplate.execute(status -> {
                 QueryWrapper<Space> queryWrapper = new QueryWrapper<>();
                 queryWrapper.eq("userId", userId);
@@ -193,9 +192,9 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
     }
 
     @Override
-    public void checkSpaceAuth(Space space, User loginUser) {
+    public void checkSpaceAuth(User loginUser, Space space) {
         // 仅本人或者管理员有资格
-        if (!userService.isAdmin(loginUser) && !loginUser.getId().equals(space.getUserId())){
+        if (!userService.isAdmin(loginUser) && !loginUser.getId().equals(space.getUserId())) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
     }
