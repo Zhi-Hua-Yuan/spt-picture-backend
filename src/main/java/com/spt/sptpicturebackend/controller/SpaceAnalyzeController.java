@@ -4,15 +4,9 @@ import com.spt.sptpicturebackend.common.BaseResponse;
 import com.spt.sptpicturebackend.common.ResultUtils;
 import com.spt.sptpicturebackend.exception.ErrorCode;
 import com.spt.sptpicturebackend.exception.ThrowUtils;
-import com.spt.sptpicturebackend.model.dto.space.analyze.SpaceCategoryAnalyzeRequest;
-import com.spt.sptpicturebackend.model.dto.space.analyze.SpaceSizeAnalyzeRequest;
-import com.spt.sptpicturebackend.model.dto.space.analyze.SpaceTagAnalyzeRequest;
-import com.spt.sptpicturebackend.model.dto.space.analyze.SpaceUsageAnalyzeRequest;
+import com.spt.sptpicturebackend.model.dto.space.analyze.*;
 import com.spt.sptpicturebackend.model.entity.User;
-import com.spt.sptpicturebackend.model.vo.space.analyze.SpaceCategoryAnalyzeResponse;
-import com.spt.sptpicturebackend.model.vo.space.analyze.SpaceSizeAnalyzeResponse;
-import com.spt.sptpicturebackend.model.vo.space.analyze.SpaceTagAnalyzeResponse;
-import com.spt.sptpicturebackend.model.vo.space.analyze.SpaceUsageAnalyzeResponse;
+import com.spt.sptpicturebackend.model.vo.space.analyze.*;
 import com.spt.sptpicturebackend.service.SpaceAnalyzeService;
 import com.spt.sptpicturebackend.service.UserService;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -83,5 +77,17 @@ public class SpaceAnalyzeController {
         List<SpaceSizeAnalyzeResponse> resultList = spaceAnalyzeService.getSpaceSizeAnalyze(spaceSizeAnalyzeRequest, loginUser);
         return ResultUtils.success(resultList);
     }
+
+    /**
+     * 获取空间图片用户上传行为
+     */
+    @PostMapping("/user")
+    public BaseResponse<List<SpaceUserAnalyzeResponse>> getSpaceUserAnalyze(@RequestBody SpaceUserAnalyzeRequest spaceUserAnalyzeRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(spaceUserAnalyzeRequest == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        List<SpaceUserAnalyzeResponse> resultList = spaceAnalyzeService.getSpaceUserAnalyze(spaceUserAnalyzeRequest, loginUser);
+        return ResultUtils.success(resultList);
+    }
+
 
 }

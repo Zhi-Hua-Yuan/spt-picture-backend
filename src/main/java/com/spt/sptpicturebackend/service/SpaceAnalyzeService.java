@@ -1,14 +1,8 @@
 package com.spt.sptpicturebackend.service;
 
-import com.spt.sptpicturebackend.model.dto.space.analyze.SpaceCategoryAnalyzeRequest;
-import com.spt.sptpicturebackend.model.dto.space.analyze.SpaceSizeAnalyzeRequest;
-import com.spt.sptpicturebackend.model.dto.space.analyze.SpaceTagAnalyzeRequest;
-import com.spt.sptpicturebackend.model.dto.space.analyze.SpaceUsageAnalyzeRequest;
+import com.spt.sptpicturebackend.model.dto.space.analyze.*;
 import com.spt.sptpicturebackend.model.entity.User;
-import com.spt.sptpicturebackend.model.vo.space.analyze.SpaceCategoryAnalyzeResponse;
-import com.spt.sptpicturebackend.model.vo.space.analyze.SpaceSizeAnalyzeResponse;
-import com.spt.sptpicturebackend.model.vo.space.analyze.SpaceTagAnalyzeResponse;
-import com.spt.sptpicturebackend.model.vo.space.analyze.SpaceUsageAnalyzeResponse;
+import com.spt.sptpicturebackend.model.vo.space.analyze.*;
 
 import java.util.List;
 
@@ -52,4 +46,13 @@ public interface SpaceAnalyzeService {
      * @return
      */
     List<SpaceSizeAnalyzeResponse> getSpaceSizeAnalyze(SpaceSizeAnalyzeRequest spaceSizeAnalyzeRequest, User loginUser);
+
+    /**
+     * 获取空间用户分析数据
+     *
+     * @param spaceUserAnalyzeRequest
+     * @param loginUser
+     * @return
+     */
+    List<SpaceUserAnalyzeResponse> getSpaceUserAnalyze(SpaceUserAnalyzeRequest spaceUserAnalyzeRequest, User loginUser);
 }
