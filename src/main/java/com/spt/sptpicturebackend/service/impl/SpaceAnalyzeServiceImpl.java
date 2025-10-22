@@ -7,14 +7,12 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.spt.sptpicturebackend.exception.BusinessException;
 import com.spt.sptpicturebackend.exception.ErrorCode;
 import com.spt.sptpicturebackend.exception.ThrowUtils;
-import com.spt.sptpicturebackend.model.dto.space.analyze.SpaceAnalyzeRequest;
-import com.spt.sptpicturebackend.model.dto.space.analyze.SpaceCategoryAnalyzeRequest;
-import com.spt.sptpicturebackend.model.dto.space.analyze.SpaceTagAnalyzeRequest;
-import com.spt.sptpicturebackend.model.dto.space.analyze.SpaceUsageAnalyzeRequest;
+import com.spt.sptpicturebackend.model.dto.space.analyze.*;
 import com.spt.sptpicturebackend.model.entity.Picture;
 import com.spt.sptpicturebackend.model.entity.Space;
 import com.spt.sptpicturebackend.model.entity.User;
 import com.spt.sptpicturebackend.model.vo.space.analyze.SpaceCategoryAnalyzeResponse;
+import com.spt.sptpicturebackend.model.vo.space.analyze.SpaceSizeAnalyzeResponse;
 import com.spt.sptpicturebackend.model.vo.space.analyze.SpaceTagAnalyzeResponse;
 import com.spt.sptpicturebackend.model.vo.space.analyze.SpaceUsageAnalyzeResponse;
 import com.spt.sptpicturebackend.service.PictureService;
@@ -23,6 +21,7 @@ import com.spt.sptpicturebackend.service.SpaceService;
 import com.spt.sptpicturebackend.service.UserService;
 
 import javax.annotation.Resource;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -175,6 +174,46 @@ public class SpaceAnalyzeServiceImpl implements SpaceAnalyzeService {
                 .map(entry -> new SpaceTagAnalyzeResponse(entry.getKey(), entry.getValue()))
                 .toList();
     }
+
+    /**
+     * 获取空间大小分析数据
+     *
+     * @param spaceSizeAnalyzeRequest
+     * @param loginUser
+     * @return
+     */
+    @Override
+    public List<SpaceSizeAnalyzeResponse> getSpaceSizeAnalyze(SpaceSizeAnalyzeRequest spaceSizeAnalyzeRequest, User loginUser) {
+        ThrowUtils.throwIf(spaceSizeAnalyzeRequest == null, ErrorCode.PARAMS_ERROR);
+
+        // 校验权限
+        checkSpaceAnalyzeAuth(spaceSizeAnalyzeRequest, loginUser);
+
+        // 填充查询范围
+        QueryWrapper<Picture> queryWrapper = new QueryWrapper<>();
+        fillAnalyzeQueryWrapper(spaceSizeAnalyzeRequest, queryWrapper);
+
+        // 查询所有符合条件的图片大小
+        queryWrapper.select("picSize");
+        List<Long> picSizeList = pictureService.getBaseMapper().selectObjs(queryWrapper)
+                .stream()
+                .map(size -> ((Number) size).longValue())
+                .toList();
+
+        // 定义分段范围，使用有序 Map
+        Map<String, Long> sizeRanges = new LinkedHashMap<>();
+        sizeRanges.put("<100KB", picSizeList.stream().filter(size -> size < 100 * 1024).count());
+        sizeRanges.put("100KB-500KB", picSizeList.stream().filter(size -> size >= 100 * 1024 && size < 500 * 1024).count());
+        sizeRanges.put("500KB-1MB", picSizeList.stream().filter(size -> size >= 500 * 1024 && size < 1 * 1024 * 1024).count());
+        sizeRanges.put(">1MB", picSizeList.stream().filter(size -> size >= 1 * 1024 * 1024).count());
+
+        // 转换为响应对象
+        return sizeRanges.entrySet()
+                .stream()
+                .map(entry -> new SpaceSizeAnalyzeResponse(entry.getKey(),entry.getValue()))
+                .toList();
+    }
+
 
     /**
      * 校验空间分析权限

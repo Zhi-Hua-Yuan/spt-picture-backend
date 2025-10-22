@@ -5,10 +5,12 @@ import com.spt.sptpicturebackend.common.ResultUtils;
 import com.spt.sptpicturebackend.exception.ErrorCode;
 import com.spt.sptpicturebackend.exception.ThrowUtils;
 import com.spt.sptpicturebackend.model.dto.space.analyze.SpaceCategoryAnalyzeRequest;
+import com.spt.sptpicturebackend.model.dto.space.analyze.SpaceSizeAnalyzeRequest;
 import com.spt.sptpicturebackend.model.dto.space.analyze.SpaceTagAnalyzeRequest;
 import com.spt.sptpicturebackend.model.dto.space.analyze.SpaceUsageAnalyzeRequest;
 import com.spt.sptpicturebackend.model.entity.User;
 import com.spt.sptpicturebackend.model.vo.space.analyze.SpaceCategoryAnalyzeResponse;
+import com.spt.sptpicturebackend.model.vo.space.analyze.SpaceSizeAnalyzeResponse;
 import com.spt.sptpicturebackend.model.vo.space.analyze.SpaceTagAnalyzeResponse;
 import com.spt.sptpicturebackend.model.vo.space.analyze.SpaceUsageAnalyzeResponse;
 import com.spt.sptpicturebackend.service.SpaceAnalyzeService;
@@ -70,4 +72,16 @@ public class SpaceAnalyzeController {
         List<SpaceTagAnalyzeResponse> resultList = spaceAnalyzeService.getSpaceTagAnalyze(spaceTagAnalyzeRequest, loginUser);
         return ResultUtils.success(resultList);
     }
+
+    /**
+     * 获取空间图片大小
+     */
+    @PostMapping("/size")
+    public BaseResponse<List<SpaceSizeAnalyzeResponse>> getSpaceSizeAnalyze(@RequestBody SpaceSizeAnalyzeRequest spaceSizeAnalyzeRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(spaceSizeAnalyzeRequest == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        List<SpaceSizeAnalyzeResponse> resultList = spaceAnalyzeService.getSpaceSizeAnalyze(spaceSizeAnalyzeRequest, loginUser);
+        return ResultUtils.success(resultList);
+    }
+
 }
