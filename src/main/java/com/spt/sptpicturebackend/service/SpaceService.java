@@ -28,6 +28,13 @@ public interface SpaceService extends IService<Space> {
      */
     QueryWrapper<Space> getQueryWrapper(SpaceQueryRequest spaceQueryRequest);
 
+    /**
+     * 添加空间
+     *
+     * @param spaceAddRequest
+     * @param loginUser
+     * @return
+     */
     long addSpace(SpaceAddRequest spaceAddRequest, User loginUser);
 
     /**

@@ -86,7 +86,7 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
                 QueryWrapper<Space> queryWrapper = new QueryWrapper<>();
                 queryWrapper.eq("userId", userId);
                 boolean exists = this.exists(queryWrapper);
-                ThrowUtils.throwIf(!exists, ErrorCode.OPERATION_ERROR, "每个用户仅能拥有一个私有空间");
+                ThrowUtils.throwIf(exists, ErrorCode.OPERATION_ERROR, "每个用户仅能拥有一个私有空间");
                 boolean result = this.save(space);
                 ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
                 return space.getId();
