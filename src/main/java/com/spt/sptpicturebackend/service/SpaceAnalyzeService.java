@@ -1,6 +1,7 @@
 package com.spt.sptpicturebackend.service;
 
 import com.spt.sptpicturebackend.model.dto.space.analyze.*;
+import com.spt.sptpicturebackend.model.entity.Space;
 import com.spt.sptpicturebackend.model.entity.User;
 import com.spt.sptpicturebackend.model.vo.space.analyze.*;
 
@@ -55,4 +56,13 @@ public interface SpaceAnalyzeService {
      * @return
      */
     List<SpaceUserAnalyzeResponse> getSpaceUserAnalyze(SpaceUserAnalyzeRequest spaceUserAnalyzeRequest, User loginUser);
+
+    /**
+     * 获取空间排行数据
+     *
+     * @param spaceRankAnalyzeRequest
+     * @param loginUser
+     * @return
+     */
+    List<Space> getSpaceRankAnalyze(SpaceRankAnalyzeRequest spaceRankAnalyzeRequest, User loginUser);
 }

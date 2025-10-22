@@ -16,6 +16,7 @@ import com.spt.sptpicturebackend.service.PictureService;
 import com.spt.sptpicturebackend.service.SpaceAnalyzeService;
 import com.spt.sptpicturebackend.service.SpaceService;
 import com.spt.sptpicturebackend.service.UserService;
+import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.util.LinkedHashMap;
@@ -26,6 +27,7 @@ import java.util.stream.Collectors;
 /**
  * @author zhiyuan
  */
+@Service
 public class SpaceAnalyzeServiceImpl implements SpaceAnalyzeService {
 
     @Resource
@@ -258,6 +260,31 @@ public class SpaceAnalyzeServiceImpl implements SpaceAnalyzeService {
                     Long count = ((Number) result.get("count")).longValue();
                     return new SpaceUserAnalyzeResponse(period, count);
                 }).toList();
+    }
+
+    /**
+     * 获取空间排行数据
+     *
+     * @param spaceRankAnalyzeRequest
+     * @param loginUser
+     * @return
+     */
+    @Override
+    public List<Space> getSpaceRankAnalyze(SpaceRankAnalyzeRequest spaceRankAnalyzeRequest, User loginUser) {
+        ThrowUtils.throwIf(spaceRankAnalyzeRequest == null, ErrorCode.PARAMS_ERROR);
+
+        // 仅管理员可查看空间排行
+        ThrowUtils.throwIf(!userService.isAdmin(loginUser), ErrorCode.NO_AUTH_ERROR, "无权查看空间排行");
+
+        // 构造查询条件
+        QueryWrapper<Space> queryWrapper = new QueryWrapper<>();
+        queryWrapper.select("id", "spaceName", "userId", "totalSize")
+                .orderByDesc("totalSize")
+                // 取前 N 名
+                .last("LIMIT " + spaceRankAnalyzeRequest.getTopN());
+
+        // 查询结果
+        return spaceService.list(queryWrapper);
     }
 
 

@@ -5,6 +5,7 @@ import com.spt.sptpicturebackend.common.ResultUtils;
 import com.spt.sptpicturebackend.exception.ErrorCode;
 import com.spt.sptpicturebackend.exception.ThrowUtils;
 import com.spt.sptpicturebackend.model.dto.space.analyze.*;
+import com.spt.sptpicturebackend.model.entity.Space;
 import com.spt.sptpicturebackend.model.entity.User;
 import com.spt.sptpicturebackend.model.vo.space.analyze.*;
 import com.spt.sptpicturebackend.service.SpaceAnalyzeService;
@@ -89,5 +90,12 @@ public class SpaceAnalyzeController {
         return ResultUtils.success(resultList);
     }
 
+    @PostMapping("/rank")
+    public BaseResponse<List<Space>> getSpaceRankAnalyze(@RequestBody SpaceRankAnalyzeRequest spaceRankAnalyzeRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(spaceRankAnalyzeRequest == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        List<Space> resultList = spaceAnalyzeService.getSpaceRankAnalyze(spaceRankAnalyzeRequest, loginUser);
+        return ResultUtils.success(resultList);
+    }
 
 }
