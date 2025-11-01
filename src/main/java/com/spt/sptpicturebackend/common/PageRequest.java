@@ -21,7 +21,7 @@ public class PageRequest {
     /**
      * 排序字段
      */
-    private String sortFiled;
+    private String sortField;
 
     /**
      * 排序顺序（默认排序）
