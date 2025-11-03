@@ -9,6 +9,7 @@ import com.spt.sptpicturebackend.constant.UserConstant;
 import com.spt.sptpicturebackend.exception.BusinessException;
 import com.spt.sptpicturebackend.exception.ErrorCode;
 import com.spt.sptpicturebackend.exception.ThrowUtils;
+import com.spt.sptpicturebackend.manager.auth.StpKit;
 import com.spt.sptpicturebackend.mapper.UserMapper;
 import com.spt.sptpicturebackend.model.dto.user.UserQueryRequest;
 import com.spt.sptpicturebackend.model.entity.User;
@@ -91,7 +92,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      * @return 脱敏后的用户信息
      */
     @Override
-    public UserVO userLogin(String userAccount, String userPassword, HttpServletRequest request) {
+    public LoginUserVO userLogin(String userAccount, String userPassword, HttpServletRequest request) {
         // 1. 校验
         // 非空
         if (StrUtil.hasEmpty(userAccount, userPassword)) {
@@ -115,11 +116,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
         // 3. 保存用户登录态
         request.getSession().setAttribute(USER_LOGIN_STATE, user);
-        // 4. 用户信息脱敏
-        UserVO userVO = new UserVO();
-        BeanUtils.copyProperties(user, userVO);
+        // 4. 记录用户登录态到 Sa-token，便于空间鉴权时使用，注意保证该用户信息与 SpringSession 中的信息过期时间一直
+        StpKit.SPACE.login(user.getId());
+        StpKit.SPACE.getSession().set(USER_LOGIN_STATE, user);
         // 5. 返回脱敏后的用户信息
-        return userVO;
+        return this.getLoginUserVO(user);
     }
 
     /**
