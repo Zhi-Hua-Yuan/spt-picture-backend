@@ -22,6 +22,7 @@ import com.spt.sptpicturebackend.service.SpaceUserService;
 import com.spt.sptpicturebackend.mapper.SpaceUserMapper;
 import com.spt.sptpicturebackend.service.UserService;
 import org.springframework.beans.BeanUtils;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
@@ -44,6 +45,7 @@ public class SpaceUserServiceImpl extends ServiceImpl<SpaceUserMapper, SpaceUser
     @Resource
     private UserService userService;
 
+    @Lazy
     @Resource
     private SpaceService spaceService;
 
