@@ -167,7 +167,6 @@
                 <version>${spring-boot.version}</version>
                 <configuration>
                     <mainClass>com.spt.sptpicturebackend.SptPictureBackendApplication</mainClass>
-                    <skip>true</skip>
                 </configuration>
                 <executions>
                     <execution>
