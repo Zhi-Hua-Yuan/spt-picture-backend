@@ -3,8 +3,8 @@ package com.spt.sptpicturebackend.api.aliyunai.model;
 import lombok.Data;
 
 /**
- * 创建AI任务响应类
- * 用于接收阿里云百炼AI图像处理接口的响应结果
+ * 创建AI扩图任务响应类
+ * 用于接收阿里云百炼AI图像扩图接口的响应数据
  * @author zhiyuan
  */
 @Data
@@ -16,17 +16,17 @@ public class CreateOutPaintingTaskResponse {
     private Output output;
 
     /**
-     * 请求唯一标识，可用于请求明细溯源和问题排查
+     * 请求唯一标识
      */
     private String requestId;
 
     /**
-     * 请求失败的错误码，请求成功时不会返回此参数
+     * 请求失败的错误码
      */
     private String code;
 
     /**
-     * 请求失败的详细信息，请求成功时不会返回此参数
+     * 请求失败的详细信息
      */
     private String message;
 
@@ -35,7 +35,6 @@ public class CreateOutPaintingTaskResponse {
      */
     @Data
     public static class Output {
-
         /**
          * 任务ID，查询有效期24小时
          */
@@ -43,6 +42,7 @@ public class CreateOutPaintingTaskResponse {
 
         /**
          * 任务状态
+         * 枚举值:
          * PENDING：任务排队中
          * RUNNING：任务处理中
          * SUCCEEDED：任务执行成功

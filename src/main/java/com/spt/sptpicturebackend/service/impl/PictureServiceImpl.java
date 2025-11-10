@@ -7,7 +7,7 @@ import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.spt.sptpicturebackend.api.aliyunai.AliyunAiImageExpansionClient;
+import com.spt.sptpicturebackend.api.aliyunai.AliYunAiApi;
 import com.spt.sptpicturebackend.api.aliyunai.model.CreateOutPaintingTaskRequest;
 import com.spt.sptpicturebackend.api.aliyunai.model.CreateOutPaintingTaskResponse;
 import com.spt.sptpicturebackend.exception.BusinessException;
@@ -78,7 +78,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     private TransactionTemplate transactionTemplate;
 
     @Resource
-    private AliyunAiImageExpansionClient aliyunAiImageExpansionClient;
+    private AliYunAiApi aliYunAiApi;
 
     @Autowired
     private CosManager cosManager;
@@ -692,7 +692,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
      * @return
      */
     @Override
-    public CreateOutPaintingTaskResponse createOutPaintingTask(CreatePictureOutPaintingTaskRequest createPictureOutPaintingTaskRequest, User loginUser)  {
+    public CreateOutPaintingTaskResponse createOutPaintingTask(CreatePictureOutPaintingTaskRequest createPictureOutPaintingTaskRequest, User loginUser) {
         // 1.获取图片信息
         Picture picture = this.getById(createPictureOutPaintingTaskRequest.getPictureId());
         ThrowUtils.throwIf(picture == null, ErrorCode.NOT_FOUND_ERROR);
@@ -701,14 +701,11 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         // 3.构造 AI 扩图请求参数
         CreateOutPaintingTaskRequest createOutPaintingTaskRequest = new CreateOutPaintingTaskRequest();
         CreateOutPaintingTaskRequest.Input input = new CreateOutPaintingTaskRequest.Input();
-        input.setFunction("expand");
-        input.setPrompt(picture.getName());
-        input.setBaseImageUrl(picture.getUrl());
+        input.setImageUrl(picture.getUrl());
         createOutPaintingTaskRequest.setInput(input);
-        CreateOutPaintingTaskRequest.Parameters parameters = createOutPaintingTaskRequest.getParameters();
-        createOutPaintingTaskRequest.setParameters(parameters);
+        createOutPaintingTaskRequest.setParameters(createPictureOutPaintingTaskRequest.getParameters());
         // 4.创建任务并返回输出信息
-        return aliyunAiImageExpansionClient.createExpansionTask(createOutPaintingTaskRequest);
+        return aliYunAiApi.createOutPaintingTask(createOutPaintingTaskRequest);
     }
 
     /**
