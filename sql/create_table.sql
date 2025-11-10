@@ -1,3 +1,5 @@
+create database if not exists spt_picture;
+
 use spt_picture;
 
 -- 创建用户表
