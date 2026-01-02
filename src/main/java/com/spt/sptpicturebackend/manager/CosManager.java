@@ -8,6 +8,8 @@ import com.qcloud.cos.model.COSObject;
 import com.qcloud.cos.model.GetObjectRequest;
 import com.qcloud.cos.model.PutObjectRequest;
 import com.qcloud.cos.model.PutObjectResult;
+import com.qcloud.cos.model.ciModel.auditing.ImageAuditingRequest;
+import com.qcloud.cos.model.ciModel.auditing.ImageAuditingResponse;
 import com.qcloud.cos.model.ciModel.persistence.PicOperations;
 import com.spt.sptpicturebackend.config.CosClientConfig;
 import org.springframework.stereotype.Component;
@@ -75,6 +77,28 @@ public class CosManager {
     public COSObject getObject(String key) {
         GetObjectRequest getObjectRequest = new GetObjectRequest(cosClientConfig.getBucketName(), key);
         return cosClient.getObject(getObjectRequest);
+    }
+
+    /**
+     * 审核文件
+     *
+     * @param key
+     * @return
+     */
+    public ImageAuditingResponse reviewObject(String key) {
+        //1.创建任务请求对象
+        ImageAuditingRequest request = new ImageAuditingRequest();
+        //2.添加请求参数 参数详情请见 API 接口文档
+        //2.1设置请求 bucket
+        request.setBucketName(cosClientConfig.getBucketName());
+        //2.2设置审核策略 不传则为默认策略（预设）
+        //request.setBizType("");
+        //2.3设置 bucket 中的图片位置
+        String host = cosClientConfig.getHost();
+        String objectKey = key.replace(host + "/","");
+        request.setObjectKey(objectKey);
+        //3.调用接口,获取任务响应对象
+        return cosClient.imageAuditing(request);
     }
 
     public void deleteObject(String key) throws CosClientException, CosServiceException {

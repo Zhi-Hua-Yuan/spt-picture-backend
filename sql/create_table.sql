@@ -50,7 +50,7 @@ create table if not exists picture
 alter table picture
     add column reviewStatus  int          not null default 0 comment '审核状态：0-待审核 1-审核通过 2-审核未通过',
     add column reviewMessage varchar(512) null comment '审核信息',
-    add column reviewerId    bigint       not null comment '审核人 id',
+    add column reviewerId    bigint       comment '审核人 id',
     add column reviewTime    datetime     null comment '审核时间';
 
 -- 创建基于 reviewStatus 列的索引

@@ -7,6 +7,7 @@ import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.qcloud.cos.model.ciModel.auditing.ImageAuditingResponse;
 import com.spt.sptpicturebackend.api.aliyunai.AliYunAiApi;
 import com.spt.sptpicturebackend.api.aliyunai.model.CreateOutPaintingTaskRequest;
 import com.spt.sptpicturebackend.api.aliyunai.model.CreateOutPaintingTaskResponse;
@@ -113,10 +114,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             }
         }
         // 1.判断是增加图片还是更新图片
-        Long pictureId = null;
-        if (pictureUploadRequest != null) {
-            pictureId = pictureUploadRequest.getId();
-        }
+        Long pictureId = pictureUploadRequest.getId();
         // 如果是更新图片，需要校验图片是否存在
         if (pictureId != null) {
             Picture oldPicture = this.getById(pictureId);
@@ -168,7 +166,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         picture.setUrl(url);
         picture.setThumbnailUrl(thumbnailUrl);
         picture.setPicColor(uploadPictureResult.getPicColor());
-        if (pictureUploadRequest != null && StrUtil.isNotBlank(pictureUploadRequest.getPicName())) {
+        if (StrUtil.isNotBlank(pictureUploadRequest.getPicName())) {
             picName = pictureUploadRequest.getPicName();
         }
         picture.setName(picName);
@@ -397,16 +395,40 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
      */
     @Override
     public void fillReviewParams(Picture picture, User loginUser) {
+        // 非管理员，创建或编辑都要改为待审核
+        picture.setReviewStatus(PictureReviewStatusEnum.REVIEWING.getValue());
+        // 如果是管理员，则需要经过数据万象审核。
+        // 如果审核未通过，设置审核状态为“审核未通过”，并说明理由。
+        // 如果审核通过，则设置审核状态为“审核通过”，理由为“经 AI 审核通过”
         if (userService.isAdmin(loginUser)) {
-            // 管理员自动过审
-            picture.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
+            ImageAuditingResponse response = cosManager.reviewObject(picture.getUrl());
+            String result = response.getResult();
+            switch (result) {
+                case "0":
+                    picture.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
+                    picture.setReviewMessage("经 AI 审核通过");
+                    break;
+                case "1":
+                    picture.setReviewStatus(PictureReviewStatusEnum.REJECT.getValue());
+                    picture.setReviewMessage("判定为违规敏感文件");
+                    break;
+                case "2":
+                    picture.setReviewStatus(PictureReviewStatusEnum.REVIEWING.getValue());
+                    picture.setReviewMessage("疑似敏感，建议人工复核");
+            }
             picture.setReviewerId(loginUser.getId());
-            picture.setReviewMessage("管理员自动过审");
             picture.setReviewTime(new Date());
-        } else {
-            // 非管理员，创建或编辑都要改为待审核
-            picture.setReviewStatus(PictureReviewStatusEnum.REVIEWING.getValue());
         }
+//        if (userService.isAdmin(loginUser)) {
+//            // 管理员自动过审
+//            picture.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
+//            picture.setReviewerId(loginUser.getId());
+//            picture.setReviewMessage("管理员自动过审");
+//            picture.setReviewTime(new Date());
+//        } else {
+//            // 非管理员，创建或编辑都要改为待审核
+//            picture.setReviewStatus(PictureReviewStatusEnum.REVIEWING.getValue());
+//        }
     }
 
     /**
