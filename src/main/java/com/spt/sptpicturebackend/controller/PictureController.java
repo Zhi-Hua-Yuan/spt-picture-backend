@@ -76,9 +76,8 @@ public class PictureController {
             .initialCapacity(1024)
             // 最多缓存 10000 条
             .maximumSize(10000L)
-            // 设置 5 分钟后国企
-            .expireAfterWrite(5L, TimeUnit.MINUTES)
-            .build();
+            // 设置 5 分钟后过期
+            .expireAfterWrite(5L, TimeUnit.MINUTES).build();
 
     /**
      * 上传图片
@@ -90,11 +89,7 @@ public class PictureController {
      */
     @PostMapping("/upload")
     @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.PICTURE_UPLOAD)
-    public BaseResponse<PictureVO> uploadPicture(
-            @RequestPart(value = "file") MultipartFile multipartFile,
-            PictureUploadRequest pictureUploadRequest,
-            HttpServletRequest request
-    ) {
+    public BaseResponse<PictureVO> uploadPicture(@RequestPart(value = "file") MultipartFile multipartFile, PictureUploadRequest pictureUploadRequest, HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         PictureVO pictureVO = pictureService.uploadPicture(multipartFile, pictureUploadRequest, loginUser);
         return ResultUtils.success(pictureVO);
@@ -105,9 +100,7 @@ public class PictureController {
      */
     @PostMapping("/upload/url")
     @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.PICTURE_UPLOAD)
-    public BaseResponse<PictureVO> uploadPictureByUrl(
-            @RequestBody PictureUploadRequest pictureUploadRequest,
-            HttpServletRequest request) {
+    public BaseResponse<PictureVO> uploadPictureByUrl(@RequestBody PictureUploadRequest pictureUploadRequest, HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         String fileUrl = pictureUploadRequest.getFileUrl();
         PictureVO pictureVO = pictureService.uploadPicture(fileUrl, pictureUploadRequest, loginUser);
@@ -225,6 +218,7 @@ public class PictureController {
         ThrowUtils.throwIf(pageSize > 20, ErrorCode.PARAMS_ERROR);
         // 普通用户默认只能查看已过审的数据
         pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
+        // 可以保存空值，避免缓存穿透
         // 查询本地缓存，构建查询条件
         String queryCondition = JSONUtil.toJsonStr(pictureQueryRequest);
         String hashKey = DigestUtils.md5DigestAsHex(queryCondition.getBytes());
@@ -236,25 +230,53 @@ public class PictureController {
             Page<PictureVO> cachedPage = JSONUtil.toBean(localValue, Page.class);
             return ResultUtils.success(cachedPage);
         }
-        // 若本地缓存中，则查询 redis 缓存
-        // 查询缓存
+        // 若本地缓存中没有，则查询 redis 缓存
         ValueOperations<String, String> valueOps = stringRedisTemplate.opsForValue();
         String redisValue = valueOps.get(cacheKey);
-        // 如果缓存中存在，则将内容存到本地缓存，并直接返回结果
+        // 如果 redis 缓存中存在，则将内容存到本地缓存，并直接返回结果
         if (redisValue != null) {
             Page<PictureVO> cachedPage = JSONUtil.toBean(redisValue, Page.class);
             LOCAL_CACHE.put(cacheKey, JSONUtil.toJsonStr(cachedPage));
             return ResultUtils.success(cachedPage);
         }
-        // 缓存中不存在，则查询数据库，并将结果写入 redis 和 本地 缓存
-        Page<Picture> picturePage = pictureService.page(new Page<>(current, pageSize), pictureService.getQueryWrapper(pictureQueryRequest));
-        Page<PictureVO> pictureVOPage = pictureService.getPictureVOPage(picturePage, request);
-        String cacheValue = JSONUtil.toJsonStr(pictureVOPage);
-        // 5-10 分钟随机过期，防止雪崩
-        int cacheExpireTime = 300 + RandomUtil.randomInt(0, 300);
-        valueOps.set(cacheKey, cacheValue, cacheExpireTime, TimeUnit.SECONDS);
-        LOCAL_CACHE.put(cacheKey, cacheValue);
-        return ResultUtils.success(pictureVOPage);
+        // 如果 redis 缓存不存在，则尝试获取分布式锁来重建缓存
+        String lockKey = "lock:" + cacheKey;
+        boolean isLocked = false;
+        try {
+            // 尝试获取锁，设置一个较短的过期时间，防止死锁
+            isLocked = Boolean.TRUE.equals(stringRedisTemplate.opsForValue().setIfAbsent(lockKey, "1", 10, TimeUnit.SECONDS));
+            if (isLocked) {
+                // 成功获取锁，查询数据库
+                Page<Picture> picturePage = pictureService.page(new Page<>(current, pageSize), pictureService.getQueryWrapper(pictureQueryRequest));
+                Page<PictureVO> pictureVOPage = pictureService.getPictureVOPage(picturePage, request);
+                String cacheValue = JSONUtil.toJsonStr(pictureVOPage);
+                // 存入 redis 和 本地缓存
+                int cacheExpireTime = 300 + RandomUtil.randomInt(0, 300);
+                valueOps.set(cacheKey, cacheValue, cacheExpireTime, TimeUnit.SECONDS);
+                LOCAL_CACHE.put(cacheKey, cacheValue);
+                return ResultUtils.success(pictureVOPage);
+            } else {
+                // 获取锁失败，说明有其他线程正在重建缓存。
+                // 此时可以等待一小段时间，然后重试从缓存获取，或者直接返回一个空页/旧数据。
+                // 这里选择等待后重试，是一种简单的策略。
+                Thread.sleep(50); // 等待50毫秒
+                String retryValue = valueOps.get(cacheKey);
+                if (retryValue != null) {
+                    Page<PictureVO> cachedPage = JSONUtil.toBean(retryValue, Page.class);
+                    LOCAL_CACHE.put(cacheKey, retryValue); // 更新本地缓存
+                    return ResultUtils.success(cachedPage);
+                }
+                // 如果重试后缓存还是没有，可能是第一个线程重建失败了，可以返回一个空页或错误。
+                return ResultUtils.success(new Page<>());
+            }
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } finally {
+            // 释放锁
+            if (isLocked) {
+                stringRedisTemplate.delete(lockKey);
+            }
+        }
     }
 
     /**
@@ -365,8 +387,7 @@ public class PictureController {
      */
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @PostMapping("/review")
-    public BaseResponse<Boolean> doPictureReview(@RequestBody PictureReviewRequest pictureReviewRequest,
-                                                 HttpServletRequest request) {
+    public BaseResponse<Boolean> doPictureReview(@RequestBody PictureReviewRequest pictureReviewRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(pictureReviewRequest == null, ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
         pictureService.doPictureReview(pictureReviewRequest, loginUser);
@@ -382,10 +403,7 @@ public class PictureController {
      */
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @PostMapping("/upload/batch")
-    public BaseResponse<Integer> uploadPictureByBatch(
-            @RequestBody PictureUploadByBatchRequest pictureUploadByBatchRequest,
-            HttpServletRequest request
-    ) {
+    public BaseResponse<Integer> uploadPictureByBatch(@RequestBody PictureUploadByBatchRequest pictureUploadByBatchRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(pictureUploadByBatchRequest == null, ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
         int uploadCount = pictureService.uploadPictureByBatch(pictureUploadByBatchRequest, loginUser);
@@ -422,10 +440,7 @@ public class PictureController {
      * 创建 AI 扩图任务
      */
     @PostMapping("/out_painting/create_task")
-    public BaseResponse<CreateOutPaintingTaskResponse> createPictureOutPaintingTask(
-            @RequestBody CreatePictureOutPaintingTaskRequest createPictureOutPaintingTaskRequest,
-            HttpServletRequest request
-    ) {
+    public BaseResponse<CreateOutPaintingTaskResponse> createPictureOutPaintingTask(@RequestBody CreatePictureOutPaintingTaskRequest createPictureOutPaintingTaskRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(createPictureOutPaintingTaskRequest == null || createPictureOutPaintingTaskRequest.getPictureId() == null, ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
         CreateOutPaintingTaskResponse response = pictureService.createOutPaintingTask(createPictureOutPaintingTaskRequest, loginUser);
