@@ -163,7 +163,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             return null;
         }
         UserVO userVO = new UserVO();
-        BeanUtils.copyProperties(user, userVO);
+            BeanUtils.copyProperties(user, userVO);
         return userVO;
     }
 

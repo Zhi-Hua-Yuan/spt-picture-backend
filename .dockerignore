@@ -1,0 +1,10 @@
+# 排除Maven/Gradle目录
+target/*
+!target/*.jar  # 只保留jar包
+node_modules/
+.git/
+.gitignore
+*.iml
+.idea/
+application-prod.yml  # 本地的prod配置不上传到镜像，后续服务器挂载
+application-local.yml
