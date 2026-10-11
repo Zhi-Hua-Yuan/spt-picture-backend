@@ -1,12 +1,11 @@
 package com.spt.sptpicturebackend.service;
 
 import cn.hutool.crypto.digest.DigestUtil;
+import com.spt.sptpicturebackend.support.TestcontainersIntegrationTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
-public class cryptoTest {
+public class cryptoTest extends TestcontainersIntegrationTest {
 
     @Test
     public void md5Test() {

@@ -27,8 +27,16 @@ import com.spt.sptpicturebackend.model.entity.Space;
 import com.spt.sptpicturebackend.model.entity.User;
 import com.spt.sptpicturebackend.model.enums.PictureReviewStatusEnum;
 import com.spt.sptpicturebackend.model.vo.picture.PictureTagCategory;
+import com.spt.sptpicturebackend.model.vo.picture.PictureSearchFacetVO;
+import com.spt.sptpicturebackend.model.vo.picture.PictureSearchPageVO;
+import com.spt.sptpicturebackend.model.vo.picture.PictureTaskVO;
+import com.spt.sptpicturebackend.model.vo.picture.PictureDlqReplayResultVO;
 import com.spt.sptpicturebackend.model.vo.picture.PictureVO;
+import com.spt.sptpicturebackend.search.PictureSearchService;
+import com.spt.sptpicturebackend.search.PictureSearchTaskService;
 import com.spt.sptpicturebackend.service.PictureService;
+import com.spt.sptpicturebackend.service.PictureAsyncProcessingService;
+import com.spt.sptpicturebackend.service.PictureDlqReplayService;
 import com.spt.sptpicturebackend.service.SpaceService;
 import com.spt.sptpicturebackend.service.UserService;
 import org.springframework.beans.BeanUtils;
@@ -67,6 +75,18 @@ public class PictureController {
 
     @Resource
     private SpaceUserAuthManager spaceUserAuthManager;
+
+    @Resource
+    private PictureSearchService pictureSearchService;
+
+    @Resource
+    private PictureSearchTaskService pictureSearchTaskService;
+
+    @Resource
+    private PictureAsyncProcessingService pictureAsyncProcessingService;
+
+    @Resource
+    private PictureDlqReplayService pictureDlqReplayService;
 
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
@@ -132,25 +152,8 @@ public class PictureController {
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @PostMapping("/update")
     public BaseResponse<Boolean> updatePicture(@RequestBody PictureUpdateRequest pictureUpdateRequest, HttpServletRequest request) {
-        if (pictureUpdateRequest == null || pictureUpdateRequest.getId() == null || pictureUpdateRequest.getId() <= 0) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR);
-        }
-        Picture picture = new Picture();
-        BeanUtils.copyProperties(pictureUpdateRequest, picture);
-        // 将 list 转为 string
-        picture.setTags(JSONUtil.toJsonStr(pictureUpdateRequest.getTags()));
-        // 数据校验
-        pictureService.validPicture(picture);
-        // 判断是否存在
-        long id = pictureUpdateRequest.getId();
-        Picture oldPicture = pictureService.getById(id);
-        ThrowUtils.throwIf(oldPicture == null, ErrorCode.NOT_FOUND_ERROR);
-        // 补充审核参数
         User loginUser = userService.getLoginUser(request);
-        pictureService.fillReviewParams(picture, loginUser);
-        // 操作数据库
-        boolean result = pictureService.updateById(picture);
-        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        pictureService.updatePicture(pictureUpdateRequest, loginUser);
         return ResultUtils.success(true);
     }
 
@@ -337,29 +340,8 @@ public class PictureController {
         if (pictureEditRequest == null || pictureEditRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        // 在此处将实体类和 DTO 进行转换
-        Picture picture = new Picture();
-        BeanUtils.copyProperties(pictureEditRequest, picture);
-        // 将 list 转为 string
-        picture.setTags(JSONUtil.toJsonStr(pictureEditRequest.getTags()));
-        // 设置编辑时间
-        picture.setEditTime(new Date());
-        // 数据校验
-        pictureService.validPicture(picture);
         User loginUser = userService.getLoginUser(request);
-        // 判断是否存在
-        long id = pictureEditRequest.getId();
-        Picture oldPicture = pictureService.getById(id);
-        ThrowUtils.throwIf(oldPicture == null, ErrorCode.NOT_FOUND_ERROR);
-        // 仅本人或管理员可编辑
-        if (!userService.isAdmin(loginUser) && !oldPicture.getUserId().equals(loginUser.getId())) {
-            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
-        }
-        // 补充审核参数
-        pictureService.fillReviewParams(picture, loginUser);
-        // 操作数据库
-        boolean result = pictureService.updateById(picture);
-        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        pictureService.editPicture(pictureEditRequest, loginUser);
         return ResultUtils.success(true);
     }
 
@@ -403,6 +385,7 @@ public class PictureController {
      */
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @PostMapping("/upload/batch")
+    @Deprecated
     public BaseResponse<Integer> uploadPictureByBatch(@RequestBody PictureUploadByBatchRequest pictureUploadByBatchRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(pictureUploadByBatchRequest == null, ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
@@ -418,6 +401,66 @@ public class PictureController {
         User loginUser = userService.getLoginUser(request);
         List<PictureVO> result = pictureService.searchPictureByColor(spaceId, picColor, loginUser);
         return ResultUtils.success(result);
+    }
+
+    /** Elasticsearch-backed search with MySQL fallback. */
+    @PostMapping("/search/page")
+    public BaseResponse<PictureSearchPageVO> searchPicturePage(@RequestBody PictureSearchRequest searchRequest,
+                                                                HttpServletRequest request) {
+        return ResultUtils.success(pictureSearchService.search(searchRequest, request));
+    }
+
+    @GetMapping("/search/suggestions")
+    public BaseResponse<List<String>> searchPictureSuggestions(String keyword, Long spaceId, Integer limit,
+                                                                HttpServletRequest request) {
+        return ResultUtils.success(pictureSearchService.suggestions(keyword, spaceId, limit, request));
+    }
+
+    @GetMapping("/search/facets")
+    public BaseResponse<PictureSearchFacetVO> searchPictureFacets(Long spaceId, HttpServletRequest request) {
+        return ResultUtils.success(pictureSearchService.facets(spaceId, request));
+    }
+
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @PostMapping("/search/index/rebuild")
+    public BaseResponse<Long> rebuildPictureSearchIndex(HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(pictureSearchTaskService.submitRebuild(loginUser));
+    }
+
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @PostMapping("/search/index/reconcile")
+    public BaseResponse<Long> reconcilePictureSearchIndex(HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(pictureSearchTaskService.submitReconcile(loginUser));
+    }
+
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @PostMapping("/mq/dlq/replay")
+    public BaseResponse<PictureDlqReplayResultVO> replayPictureDlq(
+            @RequestBody PictureDlqReplayRequest request) {
+        return ResultUtils.success(pictureDlqReplayService.replay(request));
+    }
+
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @PostMapping("/batch/tasks")
+    public BaseResponse<PictureTaskVO> createPictureBatchTask(@RequestBody PictureBatchTaskRequest request,
+                                                                HttpServletRequest httpRequest) {
+        User loginUser = userService.getLoginUser(httpRequest);
+        return ResultUtils.success(pictureAsyncProcessingService.submitBatch(request, loginUser));
+    }
+
+    @GetMapping("/tasks/{taskId}")
+    public BaseResponse<PictureTaskVO> getPictureTask(@PathVariable Long taskId, HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(pictureAsyncProcessingService.getTask(taskId, loginUser));
+    }
+
+    @PostMapping("/tasks/{taskId}/retry")
+    public BaseResponse<Boolean> retryPictureTask(@PathVariable Long taskId, HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        pictureAsyncProcessingService.retry(taskId, loginUser);
+        return ResultUtils.success(true);
     }
 
     /**

@@ -70,6 +70,9 @@ public interface PictureService extends IService<Picture> {
      */
     void doPictureReview(PictureReviewRequest pictureReviewRequest, User loginUser);
 
+    /** 管理员编辑图片并发布搜索变更事件。 */
+    void updatePicture(PictureUpdateRequest pictureUpdateRequest, User loginUser);
+
     /**
      * 填充审核参数
      *

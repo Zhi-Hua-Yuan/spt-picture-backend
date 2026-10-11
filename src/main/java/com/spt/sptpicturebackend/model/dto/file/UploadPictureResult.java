@@ -52,5 +52,12 @@ public class UploadPictureResult {
      * 图片主色调
      */
     private String picColor;
+
+    /** COS keys retained separately from public URLs for reliable cleanup. */
+    private String originalObjectKey;
+
+    private String displayObjectKey;
+
+    private String thumbnailObjectKey;
   
 }

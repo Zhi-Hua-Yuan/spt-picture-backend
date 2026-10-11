@@ -19,15 +19,25 @@ import com.spt.sptpicturebackend.manager.upload.FilePictureUpload;
 import com.spt.sptpicturebackend.manager.upload.PictureUploadTemplate;
 import com.spt.sptpicturebackend.manager.upload.UrlPictureUpload;
 import com.spt.sptpicturebackend.mapper.PictureMapper;
+import com.spt.sptpicturebackend.mapper.PictureTaskMapper;
+import com.spt.sptpicturebackend.mapper.PictureTaskItemMapper;
+import com.spt.sptpicturebackend.config.PictureAsyncProperties;
+import com.spt.sptpicturebackend.config.PictureSearchProperties;
+import com.spt.sptpicturebackend.messaging.PictureEventType;
+import com.spt.sptpicturebackend.messaging.RabbitMqTopology;
 import com.spt.sptpicturebackend.model.dto.file.UploadPictureResult;
 import com.spt.sptpicturebackend.model.dto.picture.*;
 import com.spt.sptpicturebackend.model.entity.Picture;
+import com.spt.sptpicturebackend.model.entity.PictureTask;
+import com.spt.sptpicturebackend.model.entity.PictureTaskItem;
 import com.spt.sptpicturebackend.model.entity.Space;
 import com.spt.sptpicturebackend.model.entity.User;
 import com.spt.sptpicturebackend.model.enums.PictureReviewStatusEnum;
 import com.spt.sptpicturebackend.model.vo.picture.PictureVO;
 import com.spt.sptpicturebackend.service.PictureService;
+import com.spt.sptpicturebackend.service.OutboxEventService;
 import com.spt.sptpicturebackend.service.SpaceService;
+import com.spt.sptpicturebackend.search.PictureIndexSyncService;
 import com.spt.sptpicturebackend.service.UserService;
 import com.spt.sptpicturebackend.utils.ColorSimilarityCalculator;
 import lombok.extern.slf4j.Slf4j;
@@ -79,6 +89,24 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     private TransactionTemplate transactionTemplate;
 
     @Resource
+    private PictureTaskMapper pictureTaskMapper;
+
+    @Resource
+    private PictureTaskItemMapper pictureTaskItemMapper;
+
+    @Resource
+    private OutboxEventService outboxEventService;
+
+    @Resource
+    private PictureAsyncProperties pictureAsyncProperties;
+
+    @Resource
+    private PictureSearchProperties pictureSearchProperties;
+
+    @Resource
+    private PictureIndexSyncService pictureIndexSyncService;
+
+    @Resource
     private AliYunAiApi aliYunAiApi;
 
     @Autowired
@@ -95,6 +123,12 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     @Override
     public PictureVO uploadPicture(Object inputSource, PictureUploadRequest pictureUploadRequest, User loginUser) {
         ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR, "未登录");
+        if (pictureUploadRequest.getTaskItemId() != null) {
+            PictureTaskItem taskItem = pictureTaskItemMapper.selectById(pictureUploadRequest.getTaskItemId());
+            PictureTask task = taskItem == null ? null : pictureTaskMapper.selectById(taskItem.getTaskId());
+            ThrowUtils.throwIf(taskItem == null || task == null || !Objects.equals(task.getUserId(), loginUser.getId()),
+                    ErrorCode.NO_AUTH_ERROR, "无效的批量任务项");
+        }
         // 校验空间是否存在
         // 空间权限校验
         Long spaceId = pictureUploadRequest.getSpaceId();
@@ -105,19 +139,14 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 //            if (!loginUser.getId().equals(space.getUserId())) {
 //                throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "没有空间权限");
 //            }
-            // 校验额度
-            if (space.getTotalCount() >= space.getMaxCount()) {
-                throw new BusinessException(ErrorCode.OPERATION_ERROR, "空间条数不足");
-            }
-            if (space.getTotalSize() >= space.getMaxSize()) {
-                throw new BusinessException(ErrorCode.OPERATION_ERROR, "空间大小不足");
-            }
+            // 最终额度校验在事务内以带上限条件完成，避免并发上传突破额度。
         }
         // 1.判断是增加图片还是更新图片
         Long pictureId = pictureUploadRequest.getId();
+        Picture oldPicture = null;
         // 如果是更新图片，需要校验图片是否存在
         if (pictureId != null) {
-            Picture oldPicture = this.getById(pictureId);
+            oldPicture = this.getById(pictureId);
             ThrowUtils.throwIf(oldPicture == null, ErrorCode.NOT_FOUND_ERROR, "图片不存在");
             // 仅本人或管理员可编辑
 //            if (!oldPicture.getUserId().equals(loginUser.getId()) && !userService.isAdmin(loginUser)) {
@@ -165,6 +194,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         picture.setSpaceId(spaceId);
         picture.setUrl(url);
         picture.setThumbnailUrl(thumbnailUrl);
+        picture.setOriginalObjectKey(uploadPictureResult.getOriginalObjectKey());
+        picture.setDisplayObjectKey(uploadPictureResult.getDisplayObjectKey());
+        picture.setThumbnailObjectKey(uploadPictureResult.getThumbnailObjectKey());
         picture.setPicColor(uploadPictureResult.getPicColor());
         if (StrUtil.isNotBlank(pictureUploadRequest.getPicName())) {
             picName = pictureUploadRequest.getPicName();
@@ -176,29 +208,115 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         picture.setPicScale(picScale);
         picture.setPicFormat(picFormat);
         picture.setUserId(loginUser.getId());
-        // 补充审核参数
-        fillReviewParams(picture, loginUser);
+        // 异步处理开启时只进入待审核状态；关闭时保留原有同步审核行为。
+        if (pictureAsyncProperties.isEnabled() && pictureAsyncProperties.isProcessEnabled()) {
+            picture.setReviewStatus(PictureReviewStatusEnum.REVIEWING.getValue());
+            picture.setReviewerId(null);
+            picture.setReviewTime(null);
+        } else {
+            fillReviewParams(picture, loginUser);
+        }
         // 4.更新或新增图片
         if (pictureId != null) {
             // 如果是更新图片，需要补充 id 和 编辑时间
             picture.setId(pictureId);
             picture.setEditTime(new Date());
+            picture.setVersion(oldPictureVersion(pictureId));
+        } else {
+            picture.setVersion(1L);
         }
+        picture.setProcessStatus(pictureAsyncProperties.isEnabled() && pictureAsyncProperties.isProcessEnabled() ? 0 : 2);
+        picture.setTaskItemId(pictureUploadRequest.getTaskItemId());
         // 开启事务
         Long finalSpaceId = spaceId;
-        transactionTemplate.execute(status -> {
-            boolean result = this.saveOrUpdate(picture);
-            ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "图片上传失败");
-            if (finalSpaceId != null) {
+        try {
+            transactionTemplate.execute(status -> {
+                 Picture lockedOldPicture = pictureId == null ? null : baseMapper.selectByIdForUpdate(pictureId);
+                 if (pictureId != null) {
+                     ThrowUtils.throwIf(lockedOldPicture == null, ErrorCode.NOT_FOUND_ERROR);
+                     picture.setVersion((lockedOldPicture.getVersion() == null ? 1L : lockedOldPicture.getVersion()) + 1);
+                 }
+                 boolean result = this.saveOrUpdate(picture);
+                 ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "图片上传失败");
+                 if (pictureAsyncProperties.isEnabled()) {
+                     outboxEventService.createPictureChanged(picture.getId(), picture.getVersion());
+                 }
+                if (finalSpaceId != null) {
+                long newSize = picture.getPicSize() == null ? 0L : picture.getPicSize();
+                 long oldSize = pictureId == null || lockedOldPicture == null || lockedOldPicture.getPicSize() == null
+                        ? 0L : lockedOldPicture.getPicSize();
+                long delta = newSize - oldSize;
+                String sizeExpression = "GREATEST(totalSize + " + delta + ", 0)";
+                String countExpression = pictureId == null ? "totalCount + 1" : "totalCount";
                 boolean update = spaceService.lambdaUpdate()
                         .eq(Space::getId, finalSpaceId)
-                        .setSql("totalSize = totalSize + " + picture.getPicSize())
-                        .setSql("totalCount = totalCount + 1")
+                        .setSql("totalSize = " + sizeExpression)
+                        .setSql("totalCount = " + countExpression)
+                        .apply("totalSize + " + delta + " <= maxSize")
+                        .apply(pictureId == null ? "totalCount + 1 <= maxCount" : "totalCount <= maxCount")
                         .update();
                 ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "额度更新失败");
+                }
+                if (pictureAsyncProperties.isEnabled() && pictureAsyncProperties.isProcessEnabled()) {
+                PictureTask task = new PictureTask();
+                task.setTaskType("PICTURE_PROCESS");
+                task.setUserId(loginUser.getId());
+                task.setSpaceId(finalSpaceId);
+                task.setPictureId(picture.getId());
+                task.setStatus("PENDING");
+                task.setProgress(0);
+                task.setTotalCount(1);
+                task.setSuccessCount(0);
+                task.setFailedCount(0);
+                task.setRetryCount(0);
+                task.setCreateTime(new Date());
+                task.setUpdateTime(new Date());
+                pictureTaskMapper.insert(task);
+                picture.setProcessTaskId(task.getId());
+                Picture taskUpdate = new Picture();
+                taskUpdate.setId(picture.getId());
+                taskUpdate.setProcessTaskId(task.getId());
+                this.updateById(taskUpdate);
+                outboxEventService.create(PictureEventType.PROCESS_REQUESTED, RabbitMqTopology.PROCESS_KEY,
+                        picture.getId(), picture.getVersion(), picture.getId(), task.getId(), Collections.emptyMap());
+                }
+                 if (pictureId != null && lockedOldPicture != null && pictureAsyncProperties.isEnabled() && pictureAsyncProperties.isFileDeleteEnabled()) {
+                 Set<String> oldKeys = new LinkedHashSet<>();
+                 addIfNotBlank(oldKeys, lockedOldPicture.getOriginalObjectKey());
+                 addIfNotBlank(oldKeys, lockedOldPicture.getDisplayObjectKey());
+                 addIfNotBlank(oldKeys, lockedOldPicture.getThumbnailObjectKey());
+                 if (oldKeys.isEmpty()) {
+                     addIfNotBlank(oldKeys, lockedOldPicture.getUrl());
+                     addIfNotBlank(oldKeys, lockedOldPicture.getThumbnailUrl());
+                }
+                outboxEventService.create(PictureEventType.FILES_DELETE_REQUESTED, RabbitMqTopology.FILES_DELETE_KEY,
+                        picture.getId(), picture.getVersion(), picture.getId(), picture.getProcessTaskId(),
+                        Map.of("keys", new ArrayList<>(oldKeys)));
+                }
+                return picture;
+            });
+        } catch (RuntimeException error) {
+            Set<String> keys = new LinkedHashSet<>();
+            addIfNotBlank(keys, uploadPictureResult.getOriginalObjectKey());
+            addIfNotBlank(keys, uploadPictureResult.getDisplayObjectKey());
+            addIfNotBlank(keys, uploadPictureResult.getThumbnailObjectKey());
+            try {
+                if (!keys.isEmpty()) {
+                    outboxEventService.create(PictureEventType.FILES_DELETE_REQUESTED, RabbitMqTopology.FILES_DELETE_KEY,
+                            pictureId, picture.getVersion(), pictureId, null, Map.of("keys", new ArrayList<>(keys)));
+                }
+            } catch (Exception cleanupEventError) {
+                log.error("图片入库失败且清理事件写入失败", cleanupEventError);
+                for (String key : keys) {
+                    try { cosManager.deleteObject(key); } catch (Exception ignored) { }
+                }
             }
-            return picture;
-        });
+            throw error;
+        }
+
+        if (directSyncEnabled()) {
+            pictureIndexSyncService.syncByIdAfterCommit(picture.getId());
+        }
 
         // 5.返回图片信息
         return PictureVO.objToVo(picture);
@@ -383,8 +501,21 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         BeanUtils.copyProperties(pictureReviewRequest, updatePicture);
         updatePicture.setReviewerId(loginUser.getId());
         updatePicture.setReviewTime(new Date());
-        boolean result = this.updateById(updatePicture);
-        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        updatePicture.setVersion((oldPicture.getVersion() == null ? 1L : oldPicture.getVersion()) + 1);
+        transactionTemplate.execute(status -> {
+            Picture locked = baseMapper.selectByIdForUpdate(id);
+            ThrowUtils.throwIf(locked == null, ErrorCode.NOT_FOUND_ERROR);
+            updatePicture.setVersion((locked.getVersion() == null ? 1L : locked.getVersion()) + 1);
+            boolean result = this.updateById(updatePicture);
+            ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+            if (pictureAsyncProperties.isEnabled()) {
+                outboxEventService.createPictureChanged(id, updatePicture.getVersion());
+            }
+            return null;
+        });
+        if (directSyncEnabled()) {
+            pictureIndexSyncService.syncByIdAfterCommit(id);
+        }
     }
 
     /**
@@ -502,19 +633,56 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     @Async
     @Override
     public void clearPictureFile(Picture oldPicture) {
-        // 判断该图片是否被多条记录使用
-        String pictureUrl = oldPicture.getUrl();
-        Long count = this.lambdaQuery().eq(Picture::getUrl, pictureUrl).count();
-        // 有不止一条记录使用，则不清理
-        if (count > 1) {
-            return;
+        // 新数据保留 Object Key，可同时清理原图、展示图和缩略图；旧数据回退到 URL。
+        Set<String> keys = new LinkedHashSet<>();
+        addIfNotBlank(keys, oldPicture.getOriginalObjectKey());
+        addIfNotBlank(keys, oldPicture.getDisplayObjectKey());
+        addIfNotBlank(keys, oldPicture.getThumbnailObjectKey());
+        if (keys.isEmpty()) {
+            Long count = this.lambdaQuery().eq(Picture::getUrl, oldPicture.getUrl()).count();
+            if (count != null && count > 1) {
+                return;
+            }
+            addIfNotBlank(keys, oldPicture.getUrl());
+            addIfNotBlank(keys, oldPicture.getThumbnailUrl());
         }
-        // FIXME 注意，这里的 url 包含了域名，实际上只要传 key 值（存储路径）就够了
-        cosManager.deleteObject(pictureUrl);
-        // 清理缩略图
-        String thumbnailUrl = oldPicture.getThumbnailUrl();
-        if (StrUtil.isNotBlank(thumbnailUrl)) {
-            cosManager.deleteObject(thumbnailUrl);
+        for (String key : keys) {
+            cosManager.deleteObject(key);
+        }
+    }
+
+    @Override
+    public void updatePicture(PictureUpdateRequest request, User loginUser) {
+        ThrowUtils.throwIf(request == null || request.getId() == null || request.getId() <= 0,
+                ErrorCode.PARAMS_ERROR);
+        Picture update = new Picture();
+        BeanUtils.copyProperties(request, update);
+        update.setTags(JSONUtil.toJsonStr(request.getTags()));
+        validPicture(update);
+        Picture old = getById(request.getId());
+        ThrowUtils.throwIf(old == null, ErrorCode.NOT_FOUND_ERROR);
+        fillReviewParams(update, loginUser);
+        update.setVersion((old.getVersion() == null ? 1L : old.getVersion()) + 1);
+        Boolean result = transactionTemplate.execute(status -> {
+            Picture locked = baseMapper.selectByIdForUpdate(request.getId());
+            ThrowUtils.throwIf(locked == null, ErrorCode.NOT_FOUND_ERROR);
+            update.setVersion((locked.getVersion() == null ? 1L : locked.getVersion()) + 1);
+            boolean changed = updateById(update);
+            ThrowUtils.throwIf(!changed, ErrorCode.OPERATION_ERROR);
+            if (pictureAsyncProperties.isEnabled()) {
+                outboxEventService.createPictureChanged(update.getId(), update.getVersion());
+            }
+            return changed;
+        });
+        ThrowUtils.throwIf(!Boolean.TRUE.equals(result), ErrorCode.OPERATION_ERROR);
+        if (directSyncEnabled()) {
+            pictureIndexSyncService.syncByIdAfterCommit(update.getId());
+        }
+    }
+
+    private void addIfNotBlank(Set<String> values, String value) {
+        if (StrUtil.isNotBlank(value)) {
+            values.add(value);
         }
     }
 
@@ -557,23 +725,45 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 //        checkPictureAuth(loginUser, oldPicture);
         // 开启事务
         transactionTemplate.execute(status -> {
+            Picture locked = baseMapper.selectByIdForUpdate(pictureId);
+            ThrowUtils.throwIf(locked == null, ErrorCode.NOT_FOUND_ERROR);
+            BeanUtils.copyProperties(locked, oldPicture);
             // 操作数据库
-            boolean result = this.removeById(pictureId);
+            boolean result = baseMapper.logicalDeleteAndBumpVersion(pictureId) > 0;
             ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+            oldPicture.setVersion((oldPicture.getVersion() == null ? 1L : oldPicture.getVersion()) + 1);
+            oldPicture.setIsDelete(1);
             // 释放额度
             Long spaceId = oldPicture.getSpaceId();
             if (spaceId != null) {
                 boolean update = spaceService.lambdaUpdate()
                         .eq(Space::getId, spaceId)
-                        .setSql("totalSize = totalSize - " + oldPicture.getPicSize())
-                        .setSql("totalCount = totalCount - 1")
+                        .setSql("totalSize = GREATEST(totalSize - " + (oldPicture.getPicSize() == null ? 0 : oldPicture.getPicSize()) + ", 0)")
+                        .setSql("totalCount = GREATEST(totalCount - 1, 0)")
                         .update();
                 ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "额度更新失败");
             }
+            Set<String> keys = new LinkedHashSet<>();
+            addIfNotBlank(keys, oldPicture.getOriginalObjectKey());
+            addIfNotBlank(keys, oldPicture.getDisplayObjectKey());
+            addIfNotBlank(keys, oldPicture.getThumbnailObjectKey());
+            if (keys.isEmpty()) {
+                addIfNotBlank(keys, oldPicture.getUrl());
+                addIfNotBlank(keys, oldPicture.getThumbnailUrl());
+            }
+            if (pictureAsyncProperties.isEnabled()) {
+                outboxEventService.createPictureDeleted(oldPicture.getId(), oldPicture.getVersion(),
+                        Map.of("keys", new ArrayList<>(keys)));
+            }
             return true;
         });
-        // 异步清理文件
-        this.clearPictureFile(oldPicture);
+        if (directSyncEnabled()) {
+            pictureIndexSyncService.syncDeletedAfterCommit(oldPicture);
+        }
+        // 异步清理文件；关闭功能开关时保留原有直接清理逻辑。
+        if (!pictureAsyncProperties.isEnabled() || !pictureAsyncProperties.isFileDeleteEnabled()) {
+            this.clearPictureFile(oldPicture);
+        }
     }
 
     /**
@@ -647,13 +837,29 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         long id = pictureEditRequest.getId();
         Picture oldPicture = this.getById(id);
         ThrowUtils.throwIf(oldPicture == null, ErrorCode.NOT_FOUND_ERROR);
-        // 校验权限
-//        checkPictureAuth(loginUser, oldPicture);
+        if (!userService.isAdmin(loginUser) && !Objects.equals(oldPicture.getUserId(), loginUser.getId())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+        }
         // 补充审核参数
         this.fillReviewParams(picture, loginUser);
+        picture.setVersion((oldPicture.getVersion() == null ? 1L : oldPicture.getVersion()) + 1);
+        picture.setProcessStatus(2);
         // 操作数据库
-        boolean result = this.updateById(picture);
-        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        boolean result = transactionTemplate.execute(status -> {
+            Picture locked = baseMapper.selectByIdForUpdate(id);
+            ThrowUtils.throwIf(locked == null, ErrorCode.NOT_FOUND_ERROR);
+            picture.setVersion((locked.getVersion() == null ? 1L : locked.getVersion()) + 1);
+            boolean updated = this.updateById(picture);
+            ThrowUtils.throwIf(!updated, ErrorCode.OPERATION_ERROR);
+            if (pictureAsyncProperties.isEnabled()) {
+                outboxEventService.createPictureChanged(id, picture.getVersion());
+            }
+            return updated;
+        });
+        ThrowUtils.throwIf(!Boolean.TRUE.equals(result), ErrorCode.OPERATION_ERROR);
+        if (directSyncEnabled()) {
+            pictureIndexSyncService.syncByIdAfterCommit(id);
+        }
     }
 
     /**
@@ -681,13 +887,16 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         }
         // 3.查询指定照片，仅选择需要的字段
         List<Picture> pictureList = this.lambdaQuery()
-                .select(Picture::getId, Picture::getSpaceId)
+                .select(Picture::getId, Picture::getSpaceId, Picture::getVersion)
                 .eq(Picture::getSpaceId, spaceId)
                 .in(Picture::getId, pictureIdList)
+                .last("FOR UPDATE")
                 .list();
         if (ObjUtil.isEmpty(pictureList)) {
             return;
         }
+        // 批量重命名必须在批量更新前完成，保证版本和索引内容一致。
+        fillPictureWithNameRule(pictureList, pictureEditByBatchRequest.getNameRule());
         // 4.更新分类和标签
         pictureList.forEach(picture -> {
             if (StrUtil.isNotBlank(category)) {
@@ -696,14 +905,29 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             if (ObjUtil.isNotEmpty(tags)) {
                 picture.setTags(JSONUtil.toJsonStr(tags));
             }
+            picture.setVersion((picture.getVersion() == null ? 1L : picture.getVersion()) + 1);
+            picture.setProcessStatus(2);
         });
         // 5.批量更新
         boolean result = this.updateBatchById(pictureList);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
 
-        // 批量重命名
-        String nameRule = pictureEditByBatchRequest.getNameRule();
-        fillPictureWithNameRule(pictureList, nameRule);
+        if (pictureAsyncProperties.isEnabled()) {
+            pictureList.forEach(picture -> outboxEventService.createPictureChanged(picture.getId(), picture.getVersion()));
+        } else {
+            pictureList.forEach(picture -> pictureIndexSyncService.syncByIdAfterCommit(picture.getId()));
+        }
+    }
+
+    private Long oldPictureVersion(Long pictureId) {
+        Picture old = this.getById(pictureId);
+        return old == null || old.getVersion() == null ? 1L : old.getVersion() + 1;
+    }
+
+    private boolean directSyncEnabled() {
+        if (!pictureAsyncProperties.isEnabled()) return true;
+        String mode = pictureSearchProperties.getSyncMode();
+        return "DIRECT".equalsIgnoreCase(mode) || "DUAL".equalsIgnoreCase(mode);
     }
 
     /**

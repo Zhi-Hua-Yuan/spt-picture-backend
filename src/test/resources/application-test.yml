@@ -1,0 +1,39 @@
+spring:
+  main:
+    allow-bean-definition-overriding: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+  session:
+    store-type: redis
+  rabbitmq:
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        auto-startup: false
+  datasource:
+    hikari:
+      maximum-pool-size: 5
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+picture:
+  async:
+    enabled: false
+  search:
+    enabled: true
+    mode: MYSQL
+
+cos:
+  client:
+    secretId: test-secret-id
+    secretKey: test-secret-key
+    bucketName: test-bucket
+    region: ap-shanghai
+    host: http://wiremock-cos.test
+
+aliYunAi:
+  apiKey: test-dashscope-key

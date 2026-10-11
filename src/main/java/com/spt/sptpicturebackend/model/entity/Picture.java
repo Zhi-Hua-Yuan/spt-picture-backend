@@ -131,6 +131,24 @@ public class Picture implements Serializable {
      */
     private Date reviewTime;
 
+    /** 异步处理状态：0-PENDING, 1-PROCESSING, 2-SUCCEEDED, 3-FAILED */
+    private Integer processStatus;
+
+    /** 业务版本，用于搜索索引的外部版本控制 */
+    private Long version;
+
+    private String processMessage;
+
+    private String originalObjectKey;
+
+    private String displayObjectKey;
+
+    private String thumbnailObjectKey;
+
+    private Long processTaskId;
+
+    private Long taskItemId;
+
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
 }

@@ -1,10 +1,9 @@
 package com.spt.sptpicturebackend;
 
+import com.spt.sptpicturebackend.support.TestcontainersIntegrationTest;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
-class SptPictureBackendApplicationTests {
+class SptPictureBackendApplicationTests extends TestcontainersIntegrationTest {
 
     @Test
     void contextLoads() {

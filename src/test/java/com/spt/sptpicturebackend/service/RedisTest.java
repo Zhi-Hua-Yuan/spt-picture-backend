@@ -1,8 +1,8 @@
 package com.spt.sptpicturebackend.service;
 
+import com.spt.sptpicturebackend.support.TestcontainersIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
@@ -10,8 +10,7 @@ import javax.annotation.Resource;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest
-public class RedisTest {
+public class RedisTest extends TestcontainersIntegrationTest {
 
     @Autowired
     private StringRedisTemplate stringRedisTemplate;

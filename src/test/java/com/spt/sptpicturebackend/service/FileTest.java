@@ -1,15 +1,14 @@
 package com.spt.sptpicturebackend.service;
 
+import com.spt.sptpicturebackend.support.TestcontainersIntegrationTest;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import java.net.MalformedURLException;
 import java.net.URL;
 
-@SpringBootTest
 @Slf4j
-public class FileTest {
+public class FileTest extends TestcontainersIntegrationTest {
     @Test
     public void testUrl() {
         String url = "codefatherour";

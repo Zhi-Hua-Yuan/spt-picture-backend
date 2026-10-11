@@ -70,7 +70,8 @@ public abstract class PictureUploadTemplate {
                 if (objectList.size() > 1) {
                     thumbnailCiObject = objectList.get(1);
                 }
-                return getUploadPictureResult(originalFilename, compressedCiObject, thumbnailCiObject, imageInfo);
+                return getUploadPictureResult(originalFilename, compressedCiObject, thumbnailCiObject,
+                        imageInfo, filePath);
             }
             // 5.封装返回结果
             return getUploadPictureResult(imageInfo, originalFilename, file, filePath);
@@ -111,10 +112,15 @@ public abstract class PictureUploadTemplate {
         uploadPictureResult.setPicSize(FileUtil.size(file));
         uploadPictureResult.setPicColor(imageInfo.getAve());
         uploadPictureResult.setUrl(cosClientConfig.getHost() + "/" + filePath);
+        uploadPictureResult.setOriginalObjectKey(filePath);
+        uploadPictureResult.setDisplayObjectKey(filePath);
+        uploadPictureResult.setThumbnailObjectKey(filePath);
         return uploadPictureResult;
     }
 
-    private UploadPictureResult getUploadPictureResult(String originalFilename, CIObject compressedCiObject, CIObject thumbnailCiObject, ImageInfo imageInfo) {
+    private UploadPictureResult getUploadPictureResult(String originalFilename, CIObject compressedCiObject,
+                                                       CIObject thumbnailCiObject, ImageInfo imageInfo,
+                                                       String originalObjectKey) {
         UploadPictureResult uploadPictureResult = new UploadPictureResult();
         int picWidth = compressedCiObject.getWidth();
         int picHeight = compressedCiObject.getHeight();
@@ -128,6 +134,9 @@ public abstract class PictureUploadTemplate {
         uploadPictureResult.setPicColor(imageInfo.getAve());
         uploadPictureResult.setUrl(cosClientConfig.getHost() + "/" + compressedCiObject.getKey());
         uploadPictureResult.setThumbnailUrl(cosClientConfig.getHost() + "/" + thumbnailCiObject.getKey());
+        uploadPictureResult.setOriginalObjectKey(originalObjectKey);
+        uploadPictureResult.setDisplayObjectKey(compressedCiObject.getKey());
+        uploadPictureResult.setThumbnailObjectKey(thumbnailCiObject.getKey());
         return uploadPictureResult;
     }
 

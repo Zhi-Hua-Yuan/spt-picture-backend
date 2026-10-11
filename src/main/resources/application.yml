@@ -7,31 +7,65 @@ server:
       cookie:
         max-age: 2592000
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+
 spring:
   application:
     name: spt-picture-backend
   # 数据库配置
   datasource:
-    url: jdbc:mysql://localhost:3306/spt_picture
-    username: root
-    password: yunmo_Hua0209
+    url: ${DB_URL:jdbc:mysql://localhost:3306/spt_picture}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
   profiles:
-    active: local
+    active: ${SPRING_PROFILES_ACTIVE:local}
   servlet:
     multipart:
       enabled: true
       max-file-size: 10MB
       max-request-size: 10MB
   redis:
-    port: 6379
-    host: 127.0.0.1
+    port: ${REDIS_PORT:6379}
+    host: ${REDIS_HOST:127.0.0.1}
     timeout: 5000
     database: 0
   session:
     store-type: redis
     # session 30天后过期
     timeout: 2592000
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 1
+        default-requeue-rejected: false
+        missing-queues-fatal: false
+  flyway:
+    enabled: ${FLYWAY_ENABLED:true}
+    # Flyway migrations are the only supported schema initialization source.
+    # V1 must run on an empty database; existing databases must be migrated or
+    # explicitly baselined by the deployment operator before this application starts.
+    baseline-on-migrate: false
+    locations: classpath:db/migration
+    clean-disabled: true
+    # Use the physical MySQL connection instead of ShardingSphere's proxy.
+    url: ${DB_MIGRATION_URL:${spring.datasource.url}}
+    user: ${DB_MIGRATION_USERNAME:${spring.datasource.username}}
+    password: ${DB_MIGRATION_PASSWORD:${spring.datasource.password}}
   # 空间图片分表
   shardingsphere:
     datasource:
@@ -39,9 +73,9 @@ spring:
       spt_picture:
         type: com.zaxxer.hikari.HikariDataSource
         driver-class-name: com.mysql.cj.jdbc.Driver
-        url: jdbc:mysql://localhost:3306/spt_picture
-        username: root
-        password: yunmo_Hua0209
+        url: ${DB_URL:jdbc:mysql://localhost:3306/spt_picture}
+        username: ${DB_USERNAME:root}
+        password: ${DB_PASSWORD:}
     rules:
       sharding:
         tables:
@@ -82,3 +116,33 @@ knife4j:
         api-rule: package
         api-rule-resources:
           - com.spt.sptpicturebackend.controller
+
+picture:
+  async:
+    enabled: ${PICTURE_ASYNC_ENABLED:true}
+    process-enabled: ${PICTURE_ASYNC_PROCESS_ENABLED:true}
+    batch-enabled: ${PICTURE_ASYNC_BATCH_ENABLED:true}
+    file-delete-enabled: ${PICTURE_ASYNC_FILE_DELETE_ENABLED:true}
+    outbox-interval-ms: ${PICTURE_ASYNC_OUTBOX_INTERVAL_MS:500}
+    process-concurrency: ${PICTURE_ASYNC_PROCESS_CONCURRENCY:2}
+    batch-concurrency: ${PICTURE_ASYNC_BATCH_CONCURRENCY:2}
+    file-delete-concurrency: ${PICTURE_ASYNC_FILE_DELETE_CONCURRENCY:2}
+    search-index-concurrency: ${PICTURE_ASYNC_SEARCH_INDEX_CONCURRENCY:2}
+    index-maintenance-concurrency: ${PICTURE_ASYNC_INDEX_MAINTENANCE_CONCURRENCY:1}
+    outbox-retention-days: ${PICTURE_ASYNC_OUTBOX_RETENTION_DAYS:7}
+    consume-log-retention-days: ${PICTURE_ASYNC_CONSUME_LOG_RETENTION_DAYS:30}
+  search:
+    enabled: ${PICTURE_SEARCH_ENABLED:true}
+    mode: ${PICTURE_SEARCH_MODE:MYSQL}
+    elasticsearch:
+      endpoint: ${ELASTICSEARCH_ENDPOINT:http://localhost:9200}
+      username: ${ELASTICSEARCH_USERNAME:}
+      password: ${ELASTICSEARCH_PASSWORD:}
+      connect-timeout-ms: ${ELASTICSEARCH_CONNECT_TIMEOUT_MS:500}
+      socket-timeout-ms: ${ELASTICSEARCH_SOCKET_TIMEOUT_MS:1200}
+      index-prefix: ${ELASTICSEARCH_INDEX_PREFIX:picture_search}
+    max-page-size: ${PICTURE_SEARCH_MAX_PAGE_SIZE:20}
+    max-result-window: ${PICTURE_SEARCH_MAX_RESULT_WINDOW:10000}
+    shadow-sample-rate: ${PICTURE_SEARCH_SHADOW_SAMPLE_RATE:0.1}
+    sync-mode: ${PICTURE_SEARCH_SYNC_MODE:OUTBOX}
+    reconcile-cron: ${PICTURE_SEARCH_RECONCILE_CRON:0 0 3 * * *}

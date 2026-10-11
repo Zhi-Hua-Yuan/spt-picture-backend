@@ -102,6 +102,14 @@ public class PictureVO implements Serializable {
      */
     private Integer reviewStatus;
 
+    private Integer processStatus;
+
+    private String processMessage;
+
+    private Long version;
+
+    private Long processTaskId;
+
     /**
      * 审核信息
      */
@@ -136,6 +144,11 @@ public class PictureVO implements Serializable {
      * 权限列表
      */
     private List<String> permissionList = new ArrayList<>();
+
+    /** 安全的高亮 HTML，仅允许后端生成的 mark 标签。 */
+    private String highlightName;
+
+    private String highlightIntroduction;
 
     private static final long serialVersionUID = 1L;
 

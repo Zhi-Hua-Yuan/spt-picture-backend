@@ -16,6 +16,9 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
 import java.io.File;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -95,13 +98,29 @@ public class CosManager {
         //request.setBizType("");
         //2.3设置 bucket 中的图片位置
         String host = cosClientConfig.getHost();
-        String objectKey = key.replace(host + "/","");
+        String objectKey = toObjectKey(key);
         request.setObjectKey(objectKey);
         //3.调用接口,获取任务响应对象
         return cosClient.imageAuditing(request);
     }
 
     public void deleteObject(String key) throws CosClientException, CosServiceException {
-        cosClient.deleteObject(cosClientConfig.getBucketName(), key);
+        cosClient.deleteObject(cosClientConfig.getBucketName(), toObjectKey(key));
+    }
+
+    private String toObjectKey(String value) {
+        if (value == null || value.isBlank()) {
+            return value;
+        }
+        try {
+            URI uri = URI.create(value);
+            if (uri.getScheme() != null && uri.getHost() != null) {
+                String path = uri.getPath();
+                while (path != null && path.startsWith("/")) path = path.substring(1);
+                return URLDecoder.decode(path == null ? "" : path, StandardCharsets.UTF_8);
+            }
+        } catch (Exception ignored) {
+        }
+        return value;
     }
 }
