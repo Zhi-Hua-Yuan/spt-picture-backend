@@ -33,7 +33,6 @@ import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.*;
 
-import static com.spt.sptpicturebackend.constant.UserConstant.USER_LOGIN_STATE;
 
 /**
  * 自定义权限加载接口实现类
@@ -82,7 +81,12 @@ public class StpInterfaceImpl implements StpInterface {
             return ADMIN_PERMISSIONS;
         }
         // 获取 userId
-        User loginUser = (User) StpKit.SPACE.getSessionByLoginId(loginId).get(USER_LOGIN_STATE);
+        User loginUser;
+        try {
+            loginUser = userService.getById(Long.valueOf(String.valueOf(loginId)));
+        } catch (RuntimeException error) {
+            loginUser = null;
+        }
         if (loginUser == null) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "用户未登录");
         }

@@ -85,6 +85,9 @@ public interface UserService extends IService<User> {
      */
     long addUser(User user);
 
+    /** 禁用用户；仍拥有有效空间或图片时拒绝。 */
+    boolean disableUser(Long userId);
+
     /**
      * 获取查询条件
      *

@@ -40,14 +40,21 @@ public abstract class PictureUploadTemplate {
      * 模板方法，定义上传流程
      */
     public final UploadPictureResult uploadPicture(Object inputSource, String uploadPathPrefix) {
+        return uploadPicture(inputSource, uploadPathPrefix, null);
+    }
+
+    /** Upload with a stable object-key seed for retried asynchronous work. */
+    public final UploadPictureResult uploadPicture(Object inputSource, String uploadPathPrefix, String objectKeySeed) {
         // 1.校验图片
         validPicture(inputSource);
 
         // 2.获取图片上传地址
-        String uuid = IdUtil.randomUUID();
+        String uuid = objectKeySeed == null ? IdUtil.randomUUID() : objectKeySeed.replaceAll("[^a-zA-Z0-9/_-]", "_");
         String originalFilename = getOriginalFilename(inputSource);
         String suffix = FileUtil.getSuffix(originalFilename);
-        String filename = String.format("%s_%s.%s", uuid, DateUtil.formatDate(new Date()), suffix);
+        String filename = objectKeySeed == null
+                ? String.format("%s_%s.%s", uuid, DateUtil.formatDate(new Date()), suffix)
+                : String.format("%s.%s", uuid, suffix);
         String filePath = String.format("/%s/%s", uploadPathPrefix, filename);
 
         File file = null;

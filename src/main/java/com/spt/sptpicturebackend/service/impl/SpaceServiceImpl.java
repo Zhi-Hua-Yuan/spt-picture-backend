@@ -10,6 +10,8 @@ import com.spt.sptpicturebackend.exception.BusinessException;
 import com.spt.sptpicturebackend.exception.ErrorCode;
 import com.spt.sptpicturebackend.exception.ThrowUtils;
 import com.spt.sptpicturebackend.mapper.SpaceMapper;
+import com.spt.sptpicturebackend.mapper.PictureMapper;
+import com.spt.sptpicturebackend.mapper.UserMapper;
 import com.spt.sptpicturebackend.model.dto.space.SpaceAddRequest;
 import com.spt.sptpicturebackend.model.dto.space.SpaceQueryRequest;
 import com.spt.sptpicturebackend.model.entity.Space;
@@ -33,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.dao.DuplicateKeyException;
 
 /**
  * @author zhiyuan
@@ -48,6 +51,12 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
 
     @Resource
     private SpaceUserService spaceUserService;
+
+    @Resource
+    private PictureMapper pictureMapper;
+
+    @Resource
+    private UserMapper userMapper;
 
     @Resource
     private TransactionTemplate transactionTemplate;
@@ -108,17 +117,11 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
         if (!userService.isAdmin(loginUser) && SpaceLevelEnum.COMMON.getValue() != spaceAddRequest.getSpaceLevel()) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限创建指定级别的空间");
         }
-        // 4.控制同一个用户只能创建一个私有空间
-        String lock = userId.toString().intern();
-        synchronized (lock) {
+        // 唯一性由 MySQL 生成列唯一索引保障；事务内锁定用户，避免与用户禁用竞态。
+        try {
             Long newSpaceId = transactionTemplate.execute(status -> {
-                if (!userService.isAdmin(loginUser)) {
-                    boolean exists = this.lambdaQuery()
-                            .eq(Space::getUserId, userId)
-                            .eq(Space::getSpaceType, spaceAddRequest.getSpaceType())
-                            .exists();
-                    ThrowUtils.throwIf(exists, ErrorCode.OPERATION_ERROR, "每个用户每类空间仅能创建一个");
-                }
+                User current = userMapper.selectByIdForUpdate(userId);
+                ThrowUtils.throwIf(current == null, ErrorCode.NOT_LOGIN_ERROR, "用户不存在或已禁用");
                 // 写入数据库
                 boolean result = this.save(space);
                 ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
@@ -131,11 +134,26 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
                     result = spaceUserService.save(spaceUser);
                     ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "创建团队成员记录失败");
                 }
-                // 返回新写入的数据 id
                 return space.getId();
             });
             return Optional.ofNullable(newSpaceId).orElse(-1L);
+        } catch (DuplicateKeyException duplicateKeyException) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "每个用户每类空间仅能创建一个");
         }
+    }
+
+    @Override
+    public boolean deleteSpace(Long spaceId) {
+        ThrowUtils.throwIf(spaceId == null || spaceId <= 0, ErrorCode.PARAMS_ERROR);
+        Boolean result = transactionTemplate.execute(status -> {
+            Space locked = baseMapper.selectByIdForUpdate(spaceId);
+            ThrowUtils.throwIf(locked == null, ErrorCode.NOT_FOUND_ERROR, "空间不存在");
+            ThrowUtils.throwIf(pictureMapper.countActiveBySpaceId(spaceId) > 0,
+                    ErrorCode.OPERATION_ERROR, "空间仍有有效图片，不能删除");
+            spaceUserService.remove(new QueryWrapper<SpaceUser>().eq("spaceId", spaceId));
+            return baseMapper.deleteById(spaceId) > 0;
+        });
+        return Boolean.TRUE.equals(result);
     }
 
     @Override

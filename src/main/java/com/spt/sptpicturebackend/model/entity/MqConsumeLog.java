@@ -16,5 +16,12 @@ public class MqConsumeLog implements Serializable {
     private String consumerGroup;
     private String eventId;
     private Date consumedTime;
+    private String status;
+    private String leaseOwner;
+    private Date leaseUntil;
+    private Integer retryCount;
+    private String lastError;
+    private Date processedTime;
+    private Date updateTime;
     private static final long serialVersionUID = 1L;
 }

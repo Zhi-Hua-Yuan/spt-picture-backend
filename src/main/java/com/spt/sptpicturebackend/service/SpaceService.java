@@ -37,6 +37,9 @@ public interface SpaceService extends IService<Space> {
      */
     long addSpace(SpaceAddRequest spaceAddRequest, User loginUser);
 
+    /** 删除空空间并在同一事务中移除有效成员关系。 */
+    boolean deleteSpace(Long spaceId);
+
     /**
      * 分页获取空间列表
      *

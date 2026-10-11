@@ -2,6 +2,7 @@ package com.spt.sptpicturebackend.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.spt.sptpicturebackend.model.entity.User;
+import org.apache.ibatis.annotations.Select;
 
 /**
 * @author zhiyuan
@@ -10,6 +11,9 @@ import com.spt.sptpicturebackend.model.entity.User;
 * @Entity com.spt.sptpicturebackend.model.entity.User
 */
 public interface UserMapper extends BaseMapper<User> {
+
+    @Select("SELECT * FROM user WHERE id = #{id} AND isDelete = 0 LIMIT 1 FOR UPDATE")
+    User selectByIdForUpdate(Long id);
 
 }
 

@@ -11,6 +11,9 @@ import com.spt.sptpicturebackend.exception.ErrorCode;
 import com.spt.sptpicturebackend.exception.ThrowUtils;
 import com.spt.sptpicturebackend.manager.auth.StpKit;
 import com.spt.sptpicturebackend.mapper.UserMapper;
+import com.spt.sptpicturebackend.mapper.SpaceMapper;
+import com.spt.sptpicturebackend.mapper.SpaceUserMapper;
+import com.spt.sptpicturebackend.mapper.PictureMapper;
 import com.spt.sptpicturebackend.model.dto.user.UserQueryRequest;
 import com.spt.sptpicturebackend.model.entity.User;
 import com.spt.sptpicturebackend.model.vo.user.LoginUserVO;
@@ -18,6 +21,7 @@ import com.spt.sptpicturebackend.model.vo.user.UserVO;
 import com.spt.sptpicturebackend.service.UserService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -25,7 +29,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.spt.sptpicturebackend.constant.UserConstant.USER_LOGIN_STATE;
 
 /**
  * @author zhiyuan
@@ -35,6 +38,18 @@ import static com.spt.sptpicturebackend.constant.UserConstant.USER_LOGIN_STATE;
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         implements UserService {
+
+    @jakarta.annotation.Resource
+    private SpaceMapper spaceMapper;
+
+    @jakarta.annotation.Resource
+    private PictureMapper pictureMapper;
+
+    @jakarta.annotation.Resource
+    private SpaceUserMapper spaceUserMapper;
+
+    @jakarta.annotation.Resource
+    private TransactionTemplate transactionTemplate;
 
     /**
      * 用户注册
@@ -114,12 +129,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (user == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在或密码错误");
         }
-        // 3. 保存用户登录态
-        request.getSession().setAttribute(USER_LOGIN_STATE, user);
-        // 4. 记录用户登录态到 Sa-token，便于空间鉴权时使用，注意保证该用户信息与 SpringSession 中的信息过期时间一致
+        // 3. 统一使用 Sa-Token Redis 登录态。请求参数保留是为了兼容现有 Service 接口，
+        // 不再把用户对象写入 HttpSession，避免多套会话状态不一致。
         StpKit.SPACE.login(user.getId());
-        StpKit.SPACE.getSession().set(USER_LOGIN_STATE, user);
-        // 5. 返回脱敏后的用户信息
+        // 4. 返回脱敏后的用户信息
         return this.getLoginUserVO(user);
     }
 
@@ -131,7 +144,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      */
     @Override
     public boolean userLogout(HttpServletRequest request) {
-        request.getSession().removeAttribute(USER_LOGIN_STATE);
+        StpKit.SPACE.logout();
         return true;
     }
 
@@ -193,13 +206,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (request == null) {
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
         }
-        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
-        User currentUser = (User) userObj;
-        if (currentUser == null || currentUser.getId() == null) {
+        if (!StpKit.SPACE.isLogin()) {
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
         }
-        // 这里追求更完正确的答案，所以选择继续查询数据库，来拿信息
-        return this.getById(currentUser.getId());
+        Long loginId = StpKit.SPACE.getLoginIdAsLong();
+        if (loginId == null || loginId <= 0) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        User currentUser = this.getById(loginId);
+        if (currentUser == null) {
+            StpKit.SPACE.logout();
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        return currentUser;
     }
 
     /**
@@ -217,6 +236,27 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         boolean result = this.save(user);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return user.getId();
+    }
+
+    @Override
+    public boolean disableUser(Long userId) {
+        ThrowUtils.throwIf(userId == null || userId <= 0, ErrorCode.PARAMS_ERROR);
+        Boolean result = transactionTemplate.execute(status -> {
+            User locked = baseMapper.selectByIdForUpdate(userId);
+            ThrowUtils.throwIf(locked == null, ErrorCode.NOT_FOUND_ERROR, "用户不存在");
+            ThrowUtils.throwIf(spaceMapper.selectCount(new QueryWrapper<com.spt.sptpicturebackend.model.entity.Space>()
+                    .eq("userId", userId)) > 0,
+                    ErrorCode.OPERATION_ERROR, "用户仍拥有有效空间，不能禁用");
+            ThrowUtils.throwIf(pictureMapper.countActiveByUserId(userId) > 0,
+                    ErrorCode.OPERATION_ERROR, "用户仍拥有有效图片，不能禁用");
+            spaceUserMapper.delete(new QueryWrapper<com.spt.sptpicturebackend.model.entity.SpaceUser>()
+                    .eq("userId", userId));
+            return baseMapper.deleteById(userId) > 0;
+        });
+        if (Boolean.TRUE.equals(result)) {
+            StpKit.SPACE.logout(userId);
+        }
+        return Boolean.TRUE.equals(result);
     }
 
     /**
@@ -255,7 +295,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      */
     @Override
     public boolean isAdmin(User user) {
-        return user != null && user.getUserRole().equals(UserConstant.ADMIN_ROLE);
+        return user != null && UserConstant.ADMIN_ROLE.equals(user.getUserRole());
     }
 }
 

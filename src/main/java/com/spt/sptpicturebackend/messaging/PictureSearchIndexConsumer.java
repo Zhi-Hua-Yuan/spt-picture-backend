@@ -1,50 +1,58 @@
 package com.spt.sptpicturebackend.messaging;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.spt.sptpicturebackend.mapper.MqConsumeLogMapper;
 import com.spt.sptpicturebackend.mapper.PictureMapper;
-import com.spt.sptpicturebackend.model.entity.MqConsumeLog;
 import com.spt.sptpicturebackend.model.entity.Picture;
+import com.spt.sptpicturebackend.service.InboxService;
+import com.spt.sptpicturebackend.service.OutboxEventService;
 import com.spt.sptpicturebackend.search.PictureSearchIndexService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
-import org.springframework.amqp.rabbit.connection.CorrelationData;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionTemplate;
 import com.rabbitmq.client.Channel;
 
 import jakarta.annotation.Resource;
-import java.util.Date;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
 @ConditionalOnProperty(prefix = "picture.async", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class PictureSearchIndexConsumer {
     private static final String GROUP = "picture-search-index";
-
     @Resource private ObjectMapper objectMapper;
-    @Resource private RabbitTemplate rabbitTemplate;
     @Resource private PictureMapper pictureMapper;
-    @Resource private MqConsumeLogMapper consumeLogMapper;
     @Resource private PictureSearchIndexService indexService;
-    @Resource private TransactionTemplate transactionTemplate;
+    @Resource private InboxService inboxService;
+    @Resource private OutboxEventService outboxEventService;
+    @Resource private ReliableRabbitPublisher publisher;
 
     @RabbitListener(queues = RabbitMqTopology.SEARCH_INDEX_QUEUE,
             concurrency = "${picture.async.search-index-concurrency:2}")
     public void consume(Message message, Channel channel) throws Exception {
-        PictureMessageEnvelope envelope = objectMapper.readValue(message.getBody(), PictureMessageEnvelope.class);
+        PictureMessageEnvelope envelope;
         try {
-            if (!alreadyConsumed(envelope.getEventId())) {
-                synchronize(envelope);
-                markConsumed(envelope.getEventId());
+            envelope = objectMapper.readValue(message.getBody(), PictureMessageEnvelope.class);
+            validate(envelope);
+        } catch (Exception invalid) {
+            try {
+                publisher.park(message.getBody(), RabbitMqTopology.SEARCH_INDEX_QUEUE, invalid.getMessage());
+                channel.basicAck(message.getMessageProperties().getDeliveryTag(), false);
+            } catch (Exception ignored) {
+                channel.basicNack(message.getMessageProperties().getDeliveryTag(), false, true);
             }
+            return;
+        }
+        if (inboxService.isSucceeded(GROUP, envelope.getEventId()) || !inboxService.claim(GROUP, envelope.getEventId())) {
+            channel.basicAck(message.getMessageProperties().getDeliveryTag(), false);
+            return;
+        }
+        try {
+            synchronize(envelope);
+            inboxService.markSucceeded(GROUP, envelope.getEventId());
             channel.basicAck(message.getMessageProperties().getDeliveryTag(), false);
         } catch (Exception error) {
+            inboxService.markFailed(GROUP, envelope.getEventId(), error.getMessage());
             if (retryOrDlq(envelope, error)) {
                 channel.basicAck(message.getMessageProperties().getDeliveryTag(), false);
             } else {
@@ -83,14 +91,13 @@ public class PictureSearchIndexConsumer {
             if (envelope.getRetryCount() < 3) {
                 int next = envelope.getRetryCount() + 1;
                 envelope.setRetryCount(next);
-                sendConfirmed(RabbitMqTopology.RETRY_EXCHANGE,
+                publisher.publish(RabbitMqTopology.RETRY_EXCHANGE,
                         "picture.search-index.retry." + next,
                         objectMapper.writeValueAsString(envelope));
             } else {
-                String key = PictureEventType.PICTURE_DELETED.equals(envelope.getEventType())
-                        ? PictureEventType.PICTURE_DELETED + ".search" : envelope.getEventType();
-                sendConfirmed(RabbitMqTopology.DLX_EXCHANGE, key,
-                        objectMapper.writeValueAsString(envelope));
+                outboxEventService.createDeadLetter(envelope, GROUP,
+                        PictureEventType.PICTURE_DELETED.equals(envelope.getEventType())
+                                ? PictureEventType.PICTURE_DELETED + ".search" : envelope.getEventType());
                 log.error("搜索索引事件进入 DLQ，eventId={}, pictureId={}", envelope.getEventId(), envelope.getPictureId(), error);
             }
             return true;
@@ -100,30 +107,13 @@ public class PictureSearchIndexConsumer {
         }
     }
 
-    private void sendConfirmed(String exchange, String routingKey, String payload) throws Exception {
-        CorrelationData correlationData = new CorrelationData();
-        rabbitTemplate.convertAndSend(exchange, routingKey, payload, correlationData);
-        CorrelationData.Confirm confirm = correlationData.getFuture().get(8, TimeUnit.SECONDS);
-        if (confirm == null || !confirm.isAck() || correlationData.getReturned() != null) {
-            throw new IllegalStateException("消息未获得有效 Broker confirm");
+    private void validate(PictureMessageEnvelope envelope) {
+        if (envelope == null || envelope.getSchemaVersion() != 1 || envelope.getEventId() == null
+                || envelope.getEventType() == null) throw new IllegalArgumentException("消息信封无效");
+        if (!PictureEventType.PICTURE_CHANGED.equals(envelope.getEventType())
+                && !PictureEventType.PICTURE_DELETED.equals(envelope.getEventType())) {
+            throw new IllegalArgumentException("未知搜索事件");
         }
-    }
-
-    private boolean alreadyConsumed(String eventId) {
-        return eventId != null && consumeLogMapper.selectCount(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<MqConsumeLog>()
-                .eq("consumerGroup", GROUP).eq("eventId", eventId)) > 0;
-    }
-
-    private void markConsumed(String eventId) {
-        if (eventId == null) return;
-        transactionTemplate.execute(status -> {
-            MqConsumeLog value = new MqConsumeLog();
-            value.setConsumerGroup(GROUP);
-            value.setEventId(eventId);
-            value.setConsumedTime(new Date());
-            try { consumeLogMapper.insert(value); } catch (DuplicateKeyException ignored) { }
-            return null;
-        });
     }
 
     private long versionOf(Long value) { return value == null || value < 1 ? 1L : value; }

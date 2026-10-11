@@ -4,10 +4,6 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: false
-  session:
-    store-type: redis
-    redis:
-      namespace: spt-picture:session:v3-test
   rabbitmq:
     publisher-confirm-type: correlated
     publisher-returns: true

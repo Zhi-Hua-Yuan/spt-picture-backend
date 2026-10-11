@@ -22,6 +22,8 @@ public class RabbitMqTopology {
     public static final String FILE_DELETE_DLQ = "picture.file-delete.dlq";
     public static final String SEARCH_INDEX_DLQ = "picture.search-index.dlq";
     public static final String INDEX_MAINTENANCE_DLQ = "picture.index-rebuild.dlq";
+    public static final String PARKING_EXCHANGE = "picture.parking";
+    public static final String PARKING_QUEUE = "picture.parking.q";
 
     public static final String PROCESS_KEY = "picture.process.requested";
     public static final String BATCH_KEY = "picture.batch.requested";
@@ -50,6 +52,19 @@ public class RabbitMqTopology {
     @Bean
     DirectExchange pictureDlxExchange() {
         return ExchangeBuilder.directExchange(DLX_EXCHANGE).durable(true).build();
+    }
+
+    @Bean
+    DirectExchange pictureParkingExchange() {
+        return ExchangeBuilder.directExchange(PARKING_EXCHANGE).durable(true).build();
+    }
+
+    @Bean
+    Queue pictureParkingQueue() { return QueueBuilder.durable(PARKING_QUEUE).build(); }
+
+    @Bean
+    Binding pictureParkingBinding(DirectExchange pictureParkingExchange, Queue pictureParkingQueue) {
+        return BindingBuilder.bind(pictureParkingQueue).to(pictureParkingExchange).with("picture.parking");
     }
 
     @Bean

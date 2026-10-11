@@ -2,10 +2,6 @@ server:
   port: 8123
   servlet:
     context-path: /api
-    # cookie 30天后过期
-    session:
-      cookie:
-        max-age: 2592000
 
 management:
   endpoints:
@@ -38,12 +34,6 @@ spring:
       host: ${REDIS_HOST:127.0.0.1}
       timeout: 5000
       database: 0
-  session:
-    store-type: redis
-    redis:
-      namespace: spt-picture:session:v3
-    # session 30天后过期
-    timeout: 2592000
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
@@ -87,7 +77,22 @@ springdoc:
   swagger-ui:
     path: /doc.html
 
+sa-token:
+  token-name: satoken-space
+  timeout: 2592000
+  is-concurrent: true
+  is-share: false
+  is-read-header: true
+  is-read-cookie: true
+
 picture:
+  websocket:
+    lock-ttl-ms: ${PICTURE_WS_LOCK_TTL_MS:30000}
+    lock-renew-ms: ${PICTURE_WS_LOCK_RENEW_MS:10000}
+    channel: ${PICTURE_WS_CHANNEL:picture:edit:events}
+  inbox:
+    lease-seconds: ${PICTURE_INBOX_LEASE_SECONDS:60}
+
   async:
     enabled: ${PICTURE_ASYNC_ENABLED:true}
     process-enabled: ${PICTURE_ASYNC_PROCESS_ENABLED:true}
@@ -114,5 +119,4 @@ picture:
     max-page-size: ${PICTURE_SEARCH_MAX_PAGE_SIZE:20}
     max-result-window: ${PICTURE_SEARCH_MAX_RESULT_WINDOW:10000}
     shadow-sample-rate: ${PICTURE_SEARCH_SHADOW_SAMPLE_RATE:0.1}
-    sync-mode: ${PICTURE_SEARCH_SYNC_MODE:OUTBOX}
     reconcile-cron: ${PICTURE_SEARCH_RECONCILE_CRON:0 0 3 * * *}

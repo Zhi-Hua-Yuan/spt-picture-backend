@@ -2,6 +2,7 @@ package com.spt.sptpicturebackend.model.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.io.Serializable;
@@ -46,6 +47,10 @@ public class SpaceUser implements Serializable {
      * 更新时间
      */
     private Date updateTime;
+
+    /** 逻辑删除：离开空间后保留成员历史，但不再参与权限和唯一性判断。 */
+    @TableLogic
+    private Integer isDelete;
 
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;

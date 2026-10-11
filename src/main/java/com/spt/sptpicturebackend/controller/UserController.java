@@ -123,7 +123,7 @@ public class UserController {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        boolean result = userService.removeById(deleteRequest.getId());
+        boolean result = userService.disableUser(deleteRequest.getId());
         return ResultUtils.success(result);
     }
 

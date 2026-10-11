@@ -23,7 +23,10 @@ public class GlobalExceptionHandle {
 
     @ExceptionHandler(RuntimeException.class)
     public BaseResponse<?> runtimeExceptionHandler(RuntimeException e) {
-        log.error("runtimeException: " + e);
+        // Keep the generic response contract, but retain the complete cause chain
+        // in the server log so infrastructure failures (for example Redis) can be
+        // diagnosed without exposing implementation details to the client.
+        log.error("runtimeException", e);
         return ResultUtils.error(ErrorCode.SYSTEM_ERROR, "系统错误");
     }
 

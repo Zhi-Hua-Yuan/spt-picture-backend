@@ -17,9 +17,15 @@ class FlywaySchemaIntegrationTest extends TestcontainersIntegrationTest {
         Integer migrationCount = jdbcTemplate.queryForObject(
                 "select count(*) from flyway_schema_history where success = 1", Integer.class);
 
-        assertThat(migrationCount).isEqualTo(4);
+        assertThat(migrationCount).isEqualTo(5);
         assertThat(jdbcTemplate.queryForObject("select count(*) from picture_task", Integer.class)).isZero();
         assertThat(jdbcTemplate.queryForObject("select count(*) from outbox_event", Integer.class)).isZero();
         assertThat(jdbcTemplate.queryForObject("select count(*) from search_index_state", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from information_schema.statistics where table_schema = database() and table_name = 'space' and index_name = 'uk_space_active_owner_type'",
+                Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from information_schema.statistics where table_schema = database() and table_name = 'picture' and index_name = 'uk_picture_taskItemId'",
+                Integer.class)).isEqualTo(1);
     }
 }

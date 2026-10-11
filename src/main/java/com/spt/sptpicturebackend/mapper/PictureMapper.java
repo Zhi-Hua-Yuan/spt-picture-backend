@@ -23,6 +23,12 @@ public interface PictureMapper extends BaseMapper<Picture> {
     @Select("SELECT * FROM picture WHERE id = #{id} AND isDelete = 0 LIMIT 1 FOR UPDATE")
     Picture selectByIdForUpdate(Long id);
 
+    @Select("SELECT COUNT(*) FROM picture WHERE spaceId = #{spaceId} AND isDelete = 0")
+    long countActiveBySpaceId(Long spaceId);
+
+    @Select("SELECT COUNT(*) FROM picture WHERE userId = #{userId} AND isDelete = 0")
+    long countActiveByUserId(Long userId);
+
     @Update("UPDATE picture SET isDelete = 1, version = COALESCE(version, 1) + 1, updateTime = NOW() WHERE id = #{id} AND isDelete = 0")
     int logicalDeleteAndBumpVersion(Long id);
 

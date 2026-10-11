@@ -11,8 +11,6 @@ public class PictureSearchProperties {
     private boolean enabled = true;
     /** MYSQL, SHADOW or ELASTIC. */
     private String mode = "MYSQL";
-    /** DIRECT, DUAL or OUTBOX; controls the legacy post-commit synchronizer. */
-    private String syncMode = "OUTBOX";
     private Elasticsearch elasticsearch = new Elasticsearch();
     private int maxPageSize = 20;
     private int maxResultWindow = 10_000;

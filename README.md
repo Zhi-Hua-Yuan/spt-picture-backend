@@ -245,12 +245,14 @@ spring:
     username: your_username
     password: your_password
     driver-class-name: com.mysql.cj.jdbc.Driver
-  redis:
-    host: 127.0.0.1
-    port: 6379
-    database: 0
-  session:
-    store-type: redis
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      database: 0
+sa-token:
+  token-name: satoken-space
+  timeout: 2592000
 
 cos:
   client:
@@ -275,9 +277,10 @@ aliYunAi:
 ## 数据库初始化
 
 数据库初始化与演进只使用 `src/main/resources/db/migration/V1__baseline.sql` 至
-`V4__mq_search_sync.sql`，由 Flyway 在应用启动时执行。不要再手工执行 SQL 或让
+`V5__milestone2_correctness.sql`，由 Flyway 在应用启动时执行。不要再手工执行 SQL 或让
 `sql/create_table.sql` 与 Flyway 并行维护；已有数据库应在发布前由部署流程完成
-Flyway 基线确认。
+Flyway 基线确认。执行 V5 前，请先按 [MILESTONE-2-IMPLEMENTATION.md](MILESTONE-2-IMPLEMENTATION.md)
+中的 SQL 检查空间、成员和批量任务图片的重复数据。
 
 ## 本地启动
 
@@ -304,10 +307,8 @@ Flyway 基线确认。
 
 ### 2. 启动 Redis
 
-确保 Redis 可用，否则：
-
-- Spring Session 无法持久化登录态
-- Sa-Token 的空间权限会话无法正常使用
+确保 Redis 可用，否则 Sa-Token 登录态、空间权限会话、跨实例协作锁、WebSocket Pub/Sub
+和消息 Inbox 租约都无法正常使用。
 
 ### 3. 启动项目
 
@@ -373,7 +374,7 @@ mvn test
 
 ### 2. 会话依赖 Redis
 
-用户登录态不仅存于 HTTP Session，还会同步写入 Sa-Token 会话中，因此 Redis 不可用时，权限相关流程容易受影响。
+用户登录态统一存储在 Sa-Token Redis 中，因此 Redis 不可用时，登录、空间权限和协作编辑相关流程都会受影响。
 
 ### 3. 图片公开逻辑依赖 `spaceId`
 

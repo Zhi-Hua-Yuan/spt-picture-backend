@@ -6,7 +6,6 @@ import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.qcloud.cos.model.ciModel.auditing.ImageAuditingResponse;
 import com.spt.sptpicturebackend.manager.CosManager;
-import com.spt.sptpicturebackend.mapper.MqConsumeLogMapper;
 import com.spt.sptpicturebackend.mapper.PictureTaskItemMapper;
 import com.spt.sptpicturebackend.mapper.PictureTaskMapper;
 import com.spt.sptpicturebackend.messaging.PictureEventType;
@@ -14,7 +13,6 @@ import com.spt.sptpicturebackend.messaging.PictureMessageEnvelope;
 import com.spt.sptpicturebackend.messaging.RabbitMqTopology;
 import com.spt.sptpicturebackend.model.dto.picture.PictureBatchTaskRequest;
 import com.spt.sptpicturebackend.model.dto.picture.PictureUploadRequest;
-import com.spt.sptpicturebackend.model.entity.MqConsumeLog;
 import com.spt.sptpicturebackend.model.entity.Picture;
 import com.spt.sptpicturebackend.model.entity.PictureTask;
 import com.spt.sptpicturebackend.model.entity.PictureTaskItem;
@@ -26,7 +24,6 @@ import com.spt.sptpicturebackend.exception.BusinessException;
 import com.spt.sptpicturebackend.exception.ErrorCode;
 import com.spt.sptpicturebackend.exception.ThrowUtils;
 import com.spt.sptpicturebackend.config.PictureAsyncProperties;
-import org.springframework.dao.DuplicateKeyException;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -71,7 +68,7 @@ public class PictureAsyncProcessingService {
     @Resource
     private PictureTaskItemMapper pictureTaskItemMapper;
     @Resource
-    private MqConsumeLogMapper mqConsumeLogMapper;
+    private InboxService inboxService;
     @Resource
     private OutboxEventService outboxEventService;
     @Resource
@@ -195,7 +192,10 @@ public class PictureAsyncProcessingService {
             markConsumed(CONSUMER_PROCESS, envelope.getEventId());
             return;
         }
-        if (SUCCEEDED.equals(task.getStatus())) return;
+        if (SUCCEEDED.equals(task.getStatus())) {
+            markConsumed(CONSUMER_PROCESS, envelope.getEventId());
+            return;
+        }
         if (envelope.getPictureVersion() != null && picture.getVersion() != null
                 && !Objects.equals(envelope.getPictureVersion(), picture.getVersion())) {
             markCancelled(task.getId(), "图片版本已变化");
@@ -216,7 +216,10 @@ public class PictureAsyncProcessingService {
         }
         transactionTemplate.execute(status -> {
             Picture latest = pictureService.getById(picture.getId());
-            if (latest == null || !Objects.equals(latest.getProcessTaskId(), task.getId())) return null;
+            if (latest == null || !Objects.equals(latest.getProcessTaskId(), task.getId())) {
+                markConsumed(CONSUMER_PROCESS, envelope.getEventId());
+                return null;
+            }
             Picture updatePicture = new Picture();
             updatePicture.setId(latest.getId());
             updatePicture.setReviewStatus(reviewStatus.getValue());
@@ -266,7 +269,10 @@ public class PictureAsyncProcessingService {
         PictureTask task = pictureTaskMapper.selectById(envelope.getTaskId());
         if (task == null) throw new IllegalStateException("批量任务不存在");
         long existing = pictureTaskItemMapper.selectCount(new QueryWrapper<PictureTaskItem>().eq("taskId", task.getId()));
-        if (existing > 0) return;
+        if (existing > 0) {
+            markConsumed(CONSUMER_BATCH, envelope.getEventId());
+            return;
+        }
         PictureBatchTaskRequest request = JSONUtil.toBean(task.getRequestParams(), PictureBatchTaskRequest.class);
         Document document;
         try {
@@ -317,7 +323,10 @@ public class PictureAsyncProcessingService {
         Long itemId = envelope.getData() == null ? envelope.getPictureId() : number(envelope.getData().get("taskItemId"));
         PictureTaskItem item = pictureTaskItemMapper.selectById(itemId);
         if (item == null) throw new IllegalStateException("批量任务项不存在");
-        if (ITEM_SUCCEEDED.equals(item.getStatus())) return;
+        if (ITEM_SUCCEEDED.equals(item.getStatus())) {
+            markConsumed(CONSUMER_BATCH_ITEM, envelope.getEventId());
+            return;
+        }
         Picture existing = pictureService.lambdaQuery().eq(Picture::getTaskItemId, item.getId()).one();
         if (existing != null) {
             completeItem(item, existing.getId(), null, envelope.getEventId());
@@ -338,6 +347,8 @@ public class PictureAsyncProcessingService {
         upload.setFileUrl(item.getSourceUrl());
         upload.setSpaceId(batch.getSpaceId());
         upload.setTaskItemId(item.getId());
+        upload.setTaskId(task.getId());
+        upload.setEventId(envelope.getEventId());
         if (StrUtil.isNotBlank(batch.getNamePrefix())) {
             upload.setPicName(batch.getNamePrefix() + item.getSequenceNo());
         }
@@ -370,7 +381,7 @@ public class PictureAsyncProcessingService {
         transactionTemplate.execute(status -> { markConsumed(CONSUMER_FILE_DELETE, envelope.getEventId()); return null; });
     }
 
-    public void markFinalFailure(PictureMessageEnvelope envelope, String message) {
+    public void markFinalFailure(PictureMessageEnvelope envelope, String message, String consumerGroup) {
         String error = message == null ? "异步处理失败" : message.substring(0, Math.min(1800, message.length()));
         transactionTemplate.execute(status -> {
             switch (envelope.getEventType()) {
@@ -384,19 +395,30 @@ public class PictureAsyncProcessingService {
                         outboxEventService.createPictureChanged(picture.getId(), update.getVersion());
                     }
                     markTaskFailed(envelope.getTaskId(), error);
-                    markConsumed(CONSUMER_PROCESS, envelope.getEventId());
                 }
-                case PictureEventType.BATCH_IMPORT_REQUESTED -> { markTaskFailed(envelope.getTaskId(), error); markConsumed(CONSUMER_BATCH, envelope.getEventId()); }
+                case PictureEventType.BATCH_IMPORT_REQUESTED -> markTaskFailed(envelope.getTaskId(), error);
                 case PictureEventType.BATCH_IMPORT_ITEM_REQUESTED -> {
                     Long itemId = number(envelope.getData() == null ? null : envelope.getData().get("taskItemId"));
                     PictureTaskItem item = pictureTaskItemMapper.selectById(itemId);
                     if (item != null) { PictureTaskItem update = new PictureTaskItem(); update.setId(itemId); update.setStatus(ITEM_FAILED); update.setErrorMessage(error); pictureTaskItemMapper.updateById(update); recalculateTask(item.getTaskId()); }
-                    markConsumed(CONSUMER_BATCH_ITEM, envelope.getEventId());
                 }
-                default -> markConsumed(CONSUMER_FILE_DELETE, envelope.getEventId());
+            default -> { }
             }
+            inboxService.markFailed(consumerGroup, envelope.getEventId(), error);
+            outboxEventService.createDeadLetter(envelope, consumerGroup, envelope.getEventType());
             return null;
         });
+    }
+
+    /** Backward-compatible entry point for callers that do not provide a consumer group. */
+    public void markFinalFailure(PictureMessageEnvelope envelope, String message) {
+        String group = switch (envelope.getEventType()) {
+            case PictureEventType.PROCESS_REQUESTED -> CONSUMER_PROCESS;
+            case PictureEventType.BATCH_IMPORT_REQUESTED -> CONSUMER_BATCH;
+            case PictureEventType.BATCH_IMPORT_ITEM_REQUESTED -> CONSUMER_BATCH_ITEM;
+            default -> CONSUMER_FILE_DELETE;
+        };
+        markFinalFailure(envelope, message, group);
     }
 
     private void markTaskFailed(Long taskId, String message) {
@@ -423,13 +445,13 @@ public class PictureAsyncProcessingService {
     }
 
     private boolean alreadyConsumed(String group, String eventId) {
-        return eventId != null && mqConsumeLogMapper.selectCount(new QueryWrapper<MqConsumeLog>().eq("consumerGroup", group).eq("eventId", eventId)) > 0;
+        if (eventId == null) return false;
+        if (inboxService.isSucceeded(group, eventId)) return true;
+        return !inboxService.claim(group, eventId);
     }
 
     private void markConsumed(String group, String eventId) {
-        if (eventId == null) return;
-        MqConsumeLog log = new MqConsumeLog(); log.setConsumerGroup(group); log.setEventId(eventId); log.setConsumedTime(new Date());
-        try { mqConsumeLogMapper.insert(log); } catch (DuplicateKeyException ignored) { } catch (RuntimeException error) { throw error; }
+        inboxService.markSucceeded(group, eventId);
     }
 
     private Long number(Object value) { return value == null ? null : Long.valueOf(String.valueOf(value)); }

@@ -149,6 +149,7 @@ public class PictureSearchTaskService {
             log.error("picture search index rebuild failed, taskId={}", taskId, e);
             if (index != null) indexService.cancelRebuild(index);
             markFailed(taskId, e.getMessage());
+            throw new IllegalStateException("索引重建失败", e);
         }
     }
 
@@ -178,6 +179,7 @@ public class PictureSearchTaskService {
             pictureTaskMapper.updateById(done);
         } catch (Exception e) {
             markFailed(taskId, e.getMessage());
+            throw new IllegalStateException("索引对账失败", e);
         }
     }
 

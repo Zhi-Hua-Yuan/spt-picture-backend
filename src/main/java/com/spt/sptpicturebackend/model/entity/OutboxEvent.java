@@ -17,6 +17,8 @@ public class OutboxEvent implements Serializable {
     private Long aggregateId;
     private String eventType;
     private String routingKey;
+    /** 目标交换机；普通业务事件默认为 picture.events，死信事件使用 picture.dlx。 */
+    private String exchangeName;
     private Long version;
     private String payload;
     private String status;

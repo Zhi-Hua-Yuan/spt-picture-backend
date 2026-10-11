@@ -68,8 +68,8 @@ public class SpaceController {
         ThrowUtils.throwIf(oldSpace == null, ErrorCode.NOT_FOUND_ERROR);
         // 仅本人或者管理员可删除
         spaceService.checkSpaceAuth(loginUser, oldSpace);
-        // 操作数据库
-        boolean result = spaceService.removeById(id);
+        // 在事务内锁定空间、校验有效图片并逻辑删除成员关系。
+        boolean result = spaceService.deleteSpace(id);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(true);
     }

@@ -68,6 +68,7 @@ public class OutboxEventService {
             event.setAggregateId(aggregateId);
             event.setEventType(eventType);
             event.setRoutingKey(routingKey);
+            event.setExchangeName(RabbitMqTopology.EVENTS_EXCHANGE);
             event.setVersion(version == null ? 1L : version);
             event.setPayload(objectMapper.writeValueAsString(envelope));
             event.setStatus(PENDING);
@@ -80,6 +81,32 @@ public class OutboxEventService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("无法序列化图片事件", e);
         }
+    }
+
+    /** Persist a final dead-letter handoff while retaining the original envelope eventId. */
+    @Transactional
+    public String createDeadLetter(PictureMessageEnvelope envelope, String consumerGroup, String routingKey) {
+        String dispatchId = UUID.nameUUIDFromBytes((consumerGroup + ":" + envelope.getEventId())
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+        OutboxEvent event = new OutboxEvent();
+        event.setEventId(dispatchId);
+        event.setAggregateId(envelope.getPictureId());
+        event.setEventType(envelope.getEventType());
+        event.setRoutingKey(routingKey);
+        event.setExchangeName(RabbitMqTopology.DLX_EXCHANGE);
+        event.setVersion(envelope.getPictureVersion() == null ? 1L : envelope.getPictureVersion());
+        try {
+            event.setPayload(objectMapper.writeValueAsString(envelope));
+        } catch (JsonProcessingException error) {
+            throw new IllegalStateException("无法序列化死信事件", error);
+        }
+        event.setStatus(PENDING);
+        event.setRetryCount(0);
+        event.setNextRetryTime(new Date());
+        event.setCreateTime(new Date());
+        event.setUpdateTime(new Date());
+        try { outboxEventMapper.insert(event); } catch (org.springframework.dao.DuplicateKeyException ignored) { }
+        return dispatchId;
     }
 
     public String createPictureChanged(Long pictureId, Long version) {
@@ -121,7 +148,7 @@ public class OutboxEventService {
     private void publishOne(OutboxEvent event) {
         try {
             CorrelationData correlationData = new CorrelationData(event.getEventId());
-            rabbitTemplate.convertAndSend(RabbitMqTopology.EVENTS_EXCHANGE, event.getRoutingKey(),
+            rabbitTemplate.convertAndSend(event.getExchangeName() == null ? RabbitMqTopology.EVENTS_EXCHANGE : event.getExchangeName(), event.getRoutingKey(),
                     event.getPayload(), correlationData);
             CorrelationData.Confirm confirm = correlationData.getFuture().get(8, TimeUnit.SECONDS);
             if (correlationData.getReturned() != null) {

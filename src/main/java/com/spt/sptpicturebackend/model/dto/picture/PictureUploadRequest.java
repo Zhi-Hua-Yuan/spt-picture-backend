@@ -33,6 +33,10 @@ public class PictureUploadRequest implements Serializable {
     /** Internal batch item id used for idempotent asynchronous imports. */
     private Long taskItemId;
 
+    /** Internal async idempotency coordinates; never accepted from public API callers. */
+    private Long taskId;
+    private String eventId;
+
     private static final long serialVersionUID = 1L;
 }
 

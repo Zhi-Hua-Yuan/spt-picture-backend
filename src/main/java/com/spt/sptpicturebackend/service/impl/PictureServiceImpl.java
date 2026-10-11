@@ -21,8 +21,8 @@ import com.spt.sptpicturebackend.manager.upload.UrlPictureUpload;
 import com.spt.sptpicturebackend.mapper.PictureMapper;
 import com.spt.sptpicturebackend.mapper.PictureTaskMapper;
 import com.spt.sptpicturebackend.mapper.PictureTaskItemMapper;
+import com.spt.sptpicturebackend.mapper.UserMapper;
 import com.spt.sptpicturebackend.config.PictureAsyncProperties;
-import com.spt.sptpicturebackend.config.PictureSearchProperties;
 import com.spt.sptpicturebackend.messaging.PictureEventType;
 import com.spt.sptpicturebackend.messaging.RabbitMqTopology;
 import com.spt.sptpicturebackend.model.dto.file.UploadPictureResult;
@@ -37,7 +37,6 @@ import com.spt.sptpicturebackend.model.vo.picture.PictureVO;
 import com.spt.sptpicturebackend.service.PictureService;
 import com.spt.sptpicturebackend.service.OutboxEventService;
 import com.spt.sptpicturebackend.service.SpaceService;
-import com.spt.sptpicturebackend.search.PictureIndexSyncService;
 import com.spt.sptpicturebackend.service.UserService;
 import com.spt.sptpicturebackend.utils.ColorSimilarityCalculator;
 import lombok.extern.slf4j.Slf4j;
@@ -101,13 +100,10 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     private PictureAsyncProperties pictureAsyncProperties;
 
     @Resource
-    private PictureSearchProperties pictureSearchProperties;
-
-    @Resource
-    private PictureIndexSyncService pictureIndexSyncService;
-
-    @Resource
     private AliYunAiApi aliYunAiApi;
+
+    @Resource
+    private UserMapper userMapper;
 
     @Autowired
     private CosManager cosManager;
@@ -180,7 +176,13 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         if (inputSource instanceof String) {
             pictureUploadTemplate = urlPictureUpload;
         }
-        UploadPictureResult uploadPictureResult = pictureUploadTemplate.uploadPicture(inputSource, uploadPathPrefix);
+        String objectKeySeed = null;
+        if (pictureUploadRequest.getTaskId() != null && pictureUploadRequest.getTaskItemId() != null
+                && StrUtil.isNotBlank(pictureUploadRequest.getEventId())) {
+            objectKeySeed = String.format("async/%s/%s/%s", pictureUploadRequest.getTaskId(),
+                    pictureUploadRequest.getTaskItemId(), pictureUploadRequest.getEventId());
+        }
+        UploadPictureResult uploadPictureResult = pictureUploadTemplate.uploadPicture(inputSource, uploadPathPrefix, objectKeySeed);
         // 3.解析图片
         String picName = uploadPictureResult.getPicName();
         int picWidth = uploadPictureResult.getPicWidth();
@@ -231,6 +233,8 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         Long finalSpaceId = spaceId;
         try {
             transactionTemplate.execute(status -> {
+                 ThrowUtils.throwIf(userMapper.selectByIdForUpdate(loginUser.getId()) == null,
+                         ErrorCode.NOT_LOGIN_ERROR, "用户不存在或已禁用");
                  Picture lockedOldPicture = pictureId == null ? null : baseMapper.selectByIdForUpdate(pictureId);
                  if (pictureId != null) {
                      ThrowUtils.throwIf(lockedOldPicture == null, ErrorCode.NOT_FOUND_ERROR);
@@ -296,6 +300,10 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
                 return picture;
             });
         } catch (RuntimeException error) {
+            if (pictureUploadRequest.getTaskItemId() != null) {
+                Picture existing = this.lambdaQuery().eq(Picture::getTaskItemId, pictureUploadRequest.getTaskItemId()).one();
+                if (existing != null) return PictureVO.objToVo(existing);
+            }
             Set<String> keys = new LinkedHashSet<>();
             addIfNotBlank(keys, uploadPictureResult.getOriginalObjectKey());
             addIfNotBlank(keys, uploadPictureResult.getDisplayObjectKey());
@@ -312,10 +320,6 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
                 }
             }
             throw error;
-        }
-
-        if (directSyncEnabled()) {
-            pictureIndexSyncService.syncByIdAfterCommit(picture.getId());
         }
 
         // 5.返回图片信息
@@ -513,9 +517,6 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             }
             return null;
         });
-        if (directSyncEnabled()) {
-            pictureIndexSyncService.syncByIdAfterCommit(id);
-        }
     }
 
     /**
@@ -675,9 +676,6 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             return changed;
         });
         ThrowUtils.throwIf(!Boolean.TRUE.equals(result), ErrorCode.OPERATION_ERROR);
-        if (directSyncEnabled()) {
-            pictureIndexSyncService.syncByIdAfterCommit(update.getId());
-        }
     }
 
     private void addIfNotBlank(Set<String> values, String value) {
@@ -757,9 +755,6 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             }
             return true;
         });
-        if (directSyncEnabled()) {
-            pictureIndexSyncService.syncDeletedAfterCommit(oldPicture);
-        }
         // 异步清理文件；关闭功能开关时保留原有直接清理逻辑。
         if (!pictureAsyncProperties.isEnabled() || !pictureAsyncProperties.isFileDeleteEnabled()) {
             this.clearPictureFile(oldPicture);
@@ -857,9 +852,6 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             return updated;
         });
         ThrowUtils.throwIf(!Boolean.TRUE.equals(result), ErrorCode.OPERATION_ERROR);
-        if (directSyncEnabled()) {
-            pictureIndexSyncService.syncByIdAfterCommit(id);
-        }
     }
 
     /**
@@ -914,20 +906,12 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
         if (pictureAsyncProperties.isEnabled()) {
             pictureList.forEach(picture -> outboxEventService.createPictureChanged(picture.getId(), picture.getVersion()));
-        } else {
-            pictureList.forEach(picture -> pictureIndexSyncService.syncByIdAfterCommit(picture.getId()));
         }
     }
 
     private Long oldPictureVersion(Long pictureId) {
         Picture old = this.getById(pictureId);
         return old == null || old.getVersion() == null ? 1L : old.getVersion() + 1;
-    }
-
-    private boolean directSyncEnabled() {
-        if (!pictureAsyncProperties.isEnabled()) return true;
-        String mode = pictureSearchProperties.getSyncMode();
-        return "DIRECT".equalsIgnoreCase(mode) || "DUAL".equalsIgnoreCase(mode);
     }
 
     /**
