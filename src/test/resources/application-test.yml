@@ -1,6 +1,9 @@
 spring:
   main:
     allow-bean-definition-overriding: true
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
   flyway:
     enabled: true
     baseline-on-migrate: false
@@ -37,3 +40,6 @@ cos:
 
 aliYunAi:
   apiKey: test-dashscope-key
+
+knife4j:
+  enable: false

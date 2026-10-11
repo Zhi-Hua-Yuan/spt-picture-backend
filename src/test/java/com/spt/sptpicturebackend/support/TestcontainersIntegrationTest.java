@@ -5,6 +5,7 @@ import com.spt.sptpicturebackend.api.aliyunai.AliYunAiApi;
 import org.junit.jupiter.api.BeforeAll;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -16,12 +17,15 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
+import java.time.Duration;
+
 /**
  * Shared integration-test boundary. Every external dependency is started by
  * Testcontainers, so tests never silently use a developer's local services.
  */
 @SpringBootTest
 @ActiveProfiles("test")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers(disabledWithoutDocker = true)
 public abstract class TestcontainersIntegrationTest {
 
@@ -51,7 +55,8 @@ public abstract class TestcontainersIntegrationTest {
     protected static final ElasticsearchContainer ELASTICSEARCH = new ElasticsearchContainer(
             DockerImageName.parse("docker.elastic.co/elasticsearch/elasticsearch:7.17.29"))
             .withEnv("discovery.type", "single-node")
-            .withEnv("xpack.security.enabled", "false");
+            .withEnv("xpack.security.enabled", "false")
+            .withStartupTimeout(Duration.ofMinutes(3));
 
     @BeforeAll
     static void assertContainersAreRunning() {

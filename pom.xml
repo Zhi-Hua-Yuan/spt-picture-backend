@@ -242,6 +242,10 @@
                 <version>3.2.5</version>
                 <configuration>
                     <useModulePath>false</useModulePath>
+                    <!-- Docker Desktop 4.56 / Engine 29 rejects the legacy 1.32 API. -->
+                    <systemPropertyVariables>
+                        <api.version>1.44</api.version>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
         </plugins>
