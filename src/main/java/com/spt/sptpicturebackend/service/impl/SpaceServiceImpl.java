@@ -5,7 +5,7 @@ import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.spt.sptpicturebackend.exception.BusinessException;
 import com.spt.sptpicturebackend.exception.ErrorCode;
 import com.spt.sptpicturebackend.exception.ThrowUtils;
@@ -26,8 +26,8 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -51,11 +51,6 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
 
     @Resource
     private TransactionTemplate transactionTemplate;
-
-    // 为方便部署，暂时取消分库分表
-//    @Lazy
-//    @Resource
-//    private DynamicShardingManager dynamicShardingManager;
 
     /**
      * 获取查询包装类
@@ -136,8 +131,6 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
                     result = spaceUserService.save(spaceUser);
                     ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "创建团队成员记录失败");
                 }
-                // 创建分表。 为方便部署，暂时取消分库分表
-//                dynamicShardingManager.createSpacePictureTable(space);
                 // 返回新写入的数据 id
                 return space.getId();
             });

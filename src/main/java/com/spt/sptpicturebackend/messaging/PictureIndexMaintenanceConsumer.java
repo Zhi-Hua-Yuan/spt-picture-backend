@@ -11,7 +11,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import com.rabbitmq.client.Channel;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -61,7 +61,7 @@ public class PictureIndexMaintenanceConsumer {
         CorrelationData correlationData = new CorrelationData();
         rabbitTemplate.convertAndSend(exchange, routingKey, payload, correlationData);
         CorrelationData.Confirm confirm = correlationData.getFuture().get(8, TimeUnit.SECONDS);
-        if (confirm == null || !confirm.isAck() || correlationData.getReturnedMessage() != null) {
+        if (confirm == null || !confirm.isAck() || correlationData.getReturned() != null) {
             throw new IllegalStateException("消息未获得有效 Broker confirm");
         }
     }

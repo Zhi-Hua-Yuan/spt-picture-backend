@@ -1,13 +1,13 @@
 package com.spt.sptpicturebackend.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.extension.service.IService;
+import com.baomidou.mybatisplus.spring.service.IService;
 import com.spt.sptpicturebackend.model.dto.user.UserQueryRequest;
 import com.spt.sptpicturebackend.model.entity.User;
 import com.spt.sptpicturebackend.model.vo.user.LoginUserVO;
 import com.spt.sptpicturebackend.model.vo.user.UserVO;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 
 /**

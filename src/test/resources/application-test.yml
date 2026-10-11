@@ -1,14 +1,13 @@
 spring:
   main:
     allow-bean-definition-overriding: true
-  mvc:
-    pathmatch:
-      matching-strategy: ant_path_matcher
   flyway:
     enabled: true
     baseline-on-migrate: false
   session:
     store-type: redis
+    redis:
+      namespace: spt-picture:session:v3-test
   rabbitmq:
     publisher-confirm-type: correlated
     publisher-returns: true
@@ -41,5 +40,8 @@ cos:
 aliYunAi:
   apiKey: test-dashscope-key
 
-knife4j:
-  enable: false
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /doc.html

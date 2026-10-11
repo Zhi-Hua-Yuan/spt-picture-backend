@@ -32,13 +32,16 @@ spring:
       enabled: true
       max-file-size: 10MB
       max-request-size: 10MB
-  redis:
-    port: ${REDIS_PORT:6379}
-    host: ${REDIS_HOST:127.0.0.1}
-    timeout: 5000
-    database: 0
+  data:
+    redis:
+      port: ${REDIS_PORT:6379}
+      host: ${REDIS_HOST:127.0.0.1}
+      timeout: 5000
+      database: 0
   session:
     store-type: redis
+    redis:
+      namespace: spt-picture:session:v3
     # session 30天后过期
     timeout: 2592000
   rabbitmq:
@@ -62,38 +65,10 @@ spring:
     baseline-on-migrate: false
     locations: classpath:db/migration
     clean-disabled: true
-    # Use the physical MySQL connection instead of ShardingSphere's proxy.
+    # Use the physical MySQL connection for migrations.
     url: ${DB_MIGRATION_URL:${spring.datasource.url}}
     user: ${DB_MIGRATION_USERNAME:${spring.datasource.username}}
     password: ${DB_MIGRATION_PASSWORD:${spring.datasource.password}}
-  # 空间图片分表
-  shardingsphere:
-    datasource:
-      names: spt_picture
-      spt_picture:
-        type: com.zaxxer.hikari.HikariDataSource
-        driver-class-name: com.mysql.cj.jdbc.Driver
-        url: ${DB_URL:jdbc:mysql://localhost:3306/spt_picture}
-        username: ${DB_USERNAME:root}
-        password: ${DB_PASSWORD:}
-    rules:
-      sharding:
-        tables:
-          picture:
-            actual-data-nodes: spt_picture.picture  # 动态分表
-            table-strategy:
-              standard:
-                sharding-column: spaceId
-                sharding-algorithm-name: picture_sharding_algorithm  # 使用自定义分片算法
-        sharding-algorithms:
-          picture_sharding_algorithm:
-            type: CLASS_BASED
-            props:
-              strategy: standard
-              algorithmClassName: com.spt.sptpicturebackend.manager.sharding.PictureShardingAlgorithm
-    props:
-      sql-show: true
-
 mybatis-plus:
   global-config:
     db-config:
@@ -106,16 +81,11 @@ mybatis-plus:
     # 仅在开发环境输出日志
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
-knife4j:
-  enable: true
-  openapi:
-    title: 接口文档
-    version: 1.0
-    group:
-      default:
-        api-rule: package
-        api-rule-resources:
-          - com.spt.sptpicturebackend.controller
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /doc.html
 
 picture:
   async:

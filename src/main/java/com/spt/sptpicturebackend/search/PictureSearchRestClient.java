@@ -11,7 +11,7 @@ import org.elasticsearch.client.ResponseException;
 import org.elasticsearch.client.RestClient;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;

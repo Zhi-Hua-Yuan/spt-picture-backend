@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 import com.rabbitmq.client.Channel;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
@@ -104,7 +104,7 @@ public class PictureSearchIndexConsumer {
         CorrelationData correlationData = new CorrelationData();
         rabbitTemplate.convertAndSend(exchange, routingKey, payload, correlationData);
         CorrelationData.Confirm confirm = correlationData.getFuture().get(8, TimeUnit.SECONDS);
-        if (confirm == null || !confirm.isAck() || correlationData.getReturnedMessage() != null) {
+        if (confirm == null || !confirm.isAck() || correlationData.getReturned() != null) {
             throw new IllegalStateException("消息未获得有效 Broker confirm");
         }
     }

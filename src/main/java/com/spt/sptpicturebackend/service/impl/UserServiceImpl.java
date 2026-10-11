@@ -4,7 +4,7 @@ import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.spt.sptpicturebackend.constant.UserConstant;
 import com.spt.sptpicturebackend.exception.BusinessException;
 import com.spt.sptpicturebackend.exception.ErrorCode;
@@ -19,7 +19,7 @@ import com.spt.sptpicturebackend.service.UserService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.ArrayList;
 import java.util.List;

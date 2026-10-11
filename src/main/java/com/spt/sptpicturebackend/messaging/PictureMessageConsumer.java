@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import com.rabbitmq.client.Channel;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 

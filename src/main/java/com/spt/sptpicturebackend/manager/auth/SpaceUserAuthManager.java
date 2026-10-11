@@ -14,7 +14,7 @@ import com.spt.sptpicturebackend.service.SpaceUserService;
 import com.spt.sptpicturebackend.service.UserService;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
 

@@ -75,8 +75,8 @@ public abstract class TestcontainersIntegrationTest {
         registry.add("spring.flyway.user", MYSQL::getUsername);
         registry.add("spring.flyway.password", MYSQL::getPassword);
 
-        registry.add("spring.redis.host", REDIS::getHost);
-        registry.add("spring.redis.port", () -> REDIS.getMappedPort(6379));
+        registry.add("spring.data.redis.host", REDIS::getHost);
+        registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
 
         registry.add("spring.rabbitmq.host", RABBITMQ::getHost);
         registry.add("spring.rabbitmq.port", RABBITMQ::getAmqpPort);

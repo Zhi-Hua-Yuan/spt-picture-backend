@@ -3,7 +3,7 @@ package com.spt.sptpicturebackend.service;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
-import com.baomidou.mybatisplus.extension.service.IService;
+import com.baomidou.mybatisplus.spring.service.IService;
 import com.spt.sptpicturebackend.model.dto.space.SpaceAddRequest;
 import com.spt.sptpicturebackend.model.dto.space.SpaceQueryRequest;
 import com.spt.sptpicturebackend.model.entity.Space;
@@ -11,7 +11,7 @@ import com.spt.sptpicturebackend.model.entity.User;
 import com.spt.sptpicturebackend.model.vo.space.SpaceVO;
 
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * @author zhiyuan

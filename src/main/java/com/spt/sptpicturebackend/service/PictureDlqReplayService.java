@@ -12,7 +12,7 @@ import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -99,7 +99,7 @@ public class PictureDlqReplayService {
         CorrelationData correlationData = new CorrelationData();
         rabbitTemplate.convertAndSend(exchange, routingKey, payload, correlationData);
         CorrelationData.Confirm confirm = correlationData.getFuture().get(8, TimeUnit.SECONDS);
-        if (confirm == null || !confirm.isAck() || correlationData.getReturnedMessage() != null) {
+        if (confirm == null || !confirm.isAck() || correlationData.getReturned() != null) {
             throw new IllegalStateException("消息未获得有效 Broker confirm");
         }
     }

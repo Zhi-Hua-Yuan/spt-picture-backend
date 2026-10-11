@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 
 /** Best-effort direct synchronizer used only until the Outbox/MQ phase is enabled. */
 @Slf4j

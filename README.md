@@ -1,8 +1,8 @@
 # SPT Picture Backend
 
-一个基于 Spring Boot 2.6 + MyBatis-Plus 的图片管理与协作图库后端项目。
+一个基于 Spring Boot 3.5 + MyBatis-Plus 的图片管理与协作图库后端项目。
 
-> 当前文档对应里程碑 0。框架升级保留到里程碑 1；本轮先完成可重复测试、Flyway 单一初始化来源以及上传、任务、搜索降级的回归基线。
+> 当前文档对应里程碑 1：完成 Spring Boot 3.5、Jakarta、Springdoc OpenAPI 3、Sa-Token 会话兼容和单体运行基线。用户会话命名空间已升级，发布后需要重新登录。
 
 这个项目围绕“用户、图片、空间、成员权限”四个核心对象展开，支持公共图库、私有空间、团队空间、图片审核、对象存储上传、颜色检索、空间分析、WebSocket 协同编辑以及 AI 扩图等能力。
 
@@ -26,18 +26,18 @@
 | 类别 | 说明 |
 | --- | --- |
 | 语言 | Java 17 |
-| 框架 | Spring Boot 2.6.13 |
-| ORM | MyBatis-Plus 3.5.14 |
+| 框架 | Spring Boot 3.5.16 |
+| ORM | MyBatis-Plus 3.5.17 |
 | 数据库 | MySQL |
 | 缓存 / 会话 | Redis、Spring Session |
 | 权限 | 自定义 `@AuthCheck` + Sa-Token |
-| 文档 | Knife4j |
+| 文档 | Springdoc OpenAPI 3 / Swagger UI |
 | 存储 | 腾讯云 COS |
 | AI 能力 | 阿里云 DashScope |
 | 实时通信 | Spring WebSocket |
 | 异步消息 | RabbitMQ、LMAX Disruptor |
 | 工具库 | Hutool、Jsoup |
-| 分库分表 | ShardingSphere（代码中有预留能力，默认未启用） |
+| 数据访问 | 单体应用共享 MySQL，暂不引入分库分表代理 |
 
 ## 核心业务模型
 
@@ -91,7 +91,7 @@ spt-picture-backend
 │  ├─ service / impl              # 业务层
 │  ├─ mapper                      # MyBatis-Plus Mapper
 │  ├─ model                       # DTO / VO / Entity / Enum
-│  ├─ manager                     # COS、上传模板、鉴权、WebSocket、Disruptor、分表等
+│  ├─ manager                     # COS、上传模板、鉴权、WebSocket、Disruptor 等
 │  ├─ config                      # Spring 配置
 │  ├─ exception                   # 统一异常处理
 │  └─ common                      # 通用响应、分页、删除请求等
@@ -179,6 +179,7 @@ spt-picture-backend
 
 - 健康检查：`GET /api/health`
 - 接口文档：`http://localhost:8123/api/doc.html`
+- OpenAPI JSON：`http://localhost:8123/api/v3/api-docs`
 
 主要接口模块如下：
 
@@ -346,7 +347,7 @@ docker run -p 8123:8123 spt-picture-backend
 
 - Dockerfile 会复制 `target/spt-picture-backend-0.0.1-SNAPSHOT.jar`
 - 容器启动命令默认使用 `--spring.profiles.active=prod`
-- 当前仓库没有提供单独的 `application-prod.yml`，如需区分环境，建议自行补充
+- 生产环境配置位于 `src/main/resources/application-prod.yml`，敏感项通过环境变量注入
 
 ## 测试
 
@@ -366,15 +367,9 @@ mvn test
 
 ## 当前代码里的注意事项
 
-### 1. 分表能力当前处于预留状态
+### 1. 当前采用单体共享数据库
 
-仓库中已经包含：
-
-- `PictureShardingAlgorithm`
-- `DynamicShardingManager`
-- `application.yml` 中的 ShardingSphere 配置
-
-但主程序里当前排除了 `ShardingSphereAutoConfiguration`，且动态分表组件未启用，因此默认运行方式仍然更接近“单表模式”。
+里程碑 1 移除了 ShardingSphere 运行时依赖和分表预留代码，应用直接使用物理 MySQL 数据源。后续如有明确容量和隔离需求，再按领域边界设计独立部署单元和数据迁移方案。
 
 ### 2. 会话依赖 Redis
 
@@ -391,7 +386,7 @@ mvn test
 
 - 增加更完整的业务集成测试与接口测试
 - 将敏感配置迁移到环境变量或配置中心
-- 完整启用 ShardingSphere 动态分表能力
+- 按容量和领域边界评估独立部署单元与数据库拆分
 - 为协同编辑补充更丰富的操作类型与冲突控制策略
 - 增加对象存储、审核、AI 服务的降级与重试机制
 

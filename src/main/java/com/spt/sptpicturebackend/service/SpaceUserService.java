@@ -4,10 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.spt.sptpicturebackend.model.dto.spaceuser.SpaceUserAddRequest;
 import com.spt.sptpicturebackend.model.dto.spaceuser.SpaceUserQueryRequest;
 import com.spt.sptpicturebackend.model.entity.SpaceUser;
-import com.baomidou.mybatisplus.extension.service.IService;
+import com.baomidou.mybatisplus.spring.service.IService;
 import com.spt.sptpicturebackend.model.vo.spaceuser.SpaceUserVO;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 
 /**

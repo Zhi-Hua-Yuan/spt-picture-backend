@@ -8,13 +8,13 @@ import com.spt.sptpicturebackend.manager.websocket.model.PictureEditRequestMessa
 import com.spt.sptpicturebackend.manager.websocket.model.PictureEditResponseMessage;
 import com.spt.sptpicturebackend.model.entity.User;
 import com.spt.sptpicturebackend.service.UserService;
-import groovy.lang.Lazy;
+import org.springframework.context.annotation.Lazy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 
 /**
  * @author zhiyuan

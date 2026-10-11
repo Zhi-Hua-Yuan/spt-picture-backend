@@ -2,6 +2,12 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.5.16</version>
+        <relativePath/>
+    </parent>
     <groupId>com.spt</groupId>
     <artifactId>spt-picture-backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
@@ -11,9 +17,11 @@
         <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <spring-boot.version>2.6.13</spring-boot.version>
         <testcontainers.version>1.20.4</testcontainers.version>
         <wiremock.version>3.9.1</wiremock.version>
+        <mybatis-plus.version>3.5.17</mybatis-plus.version>
+        <sa-token.version>1.46.0</sa-token.version>
+        <springdoc.version>2.9.1</springdoc.version>
     </properties>
     <dependencies>
         <dependency>
@@ -74,8 +82,8 @@
         <!-- mybatis-plus -->
         <dependency>
             <groupId>com.baomidou</groupId>
-            <artifactId>mybatis-plus-boot-starter</artifactId>
-            <version>3.5.14</version>
+            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+            <version>${mybatis-plus.version}</version>
         </dependency>
         <!-- mybatis-plus-jsqlparser mybatis-plus分页查询插件 -->
         <dependency>
@@ -88,11 +96,11 @@
             <artifactId>hutool-all</artifactId>
             <version>5.8.38</version>
         </dependency>
-        <!-- knife4j -->
+        <!-- OpenAPI 3 -->
         <dependency>
-            <groupId>com.github.xiaoymin</groupId>
-            <artifactId>knife4j-openapi2-spring-boot-starter</artifactId>
-            <version>4.4.0</version>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${springdoc.version}</version>
         </dependency>
         <!-- aop -->
         <dependency>
@@ -131,25 +139,19 @@
         <!-- Sa-Token 权限认证 -->
         <dependency>
             <groupId>cn.dev33</groupId>
-            <artifactId>sa-token-spring-boot-starter</artifactId>
-            <version>1.39.0</version>
+            <artifactId>sa-token-spring-boot3-starter</artifactId>
+            <version>${sa-token.version}</version>
         </dependency>
         <!-- Sa-Token 整合 Redis （使用 jackson 序列化方式） -->
         <dependency>
             <groupId>cn.dev33</groupId>
             <artifactId>sa-token-redis-jackson</artifactId>
-            <version>1.39.0</version>
+            <version>${sa-token.version}</version>
         </dependency>
         <!-- 提供Redis连接池 -->
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-pool2</artifactId>
-        </dependency>
-        <!-- 分库分表 -->
-        <dependency>
-            <groupId>org.apache.shardingsphere</groupId>
-            <artifactId>shardingsphere-jdbc-core-spring-boot-starter</artifactId>
-            <version>5.2.0</version>
         </dependency>
         <!-- websocket -->
         <dependency>
@@ -161,7 +163,7 @@
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
         <!-- Elasticsearch 7.17 Java API/REST client.  We use the low-level transport
-             for endpoints that are not covered by Spring Boot 2.6 auto configuration. -->
+             for endpoints that are not covered by Spring Boot auto configuration. -->
         <dependency>
             <groupId>co.elastic.clients</groupId>
             <artifactId>elasticsearch-java</artifactId>
@@ -172,11 +174,15 @@
             <artifactId>elasticsearch-rest-client</artifactId>
             <version>7.17.29</version>
         </dependency>
-        <!-- Database migrations are deliberately independent from ShardingSphere's
-             application DataSource and are configured with spring.flyway.*. -->
+        <!-- Database migrations use the physical application DataSource and are
+             configured with spring.flyway.*. -->
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -192,16 +198,9 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-dependencies</artifactId>
-                <version>${spring-boot.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-            <dependency>
                 <groupId>com.baomidou</groupId>
                 <artifactId>mybatis-plus-bom</artifactId>
-                <version>3.5.14</version>
+                <version>${mybatis-plus.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -223,7 +222,6 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <version>${spring-boot.version}</version>
                 <configuration>
                     <mainClass>com.spt.sptpicturebackend.SptPictureBackendApplication</mainClass>
                 </configuration>

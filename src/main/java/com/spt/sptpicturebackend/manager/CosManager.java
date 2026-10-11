@@ -14,7 +14,7 @@ import com.qcloud.cos.model.ciModel.persistence.PicOperations;
 import com.spt.sptpicturebackend.config.CosClientConfig;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.io.File;
 import java.net.URI;
 import java.net.URLDecoder;

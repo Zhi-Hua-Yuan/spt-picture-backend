@@ -19,7 +19,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -124,7 +124,7 @@ public class OutboxEventService {
             rabbitTemplate.convertAndSend(RabbitMqTopology.EVENTS_EXCHANGE, event.getRoutingKey(),
                     event.getPayload(), correlationData);
             CorrelationData.Confirm confirm = correlationData.getFuture().get(8, TimeUnit.SECONDS);
-            if (correlationData.getReturnedMessage() != null) {
+            if (correlationData.getReturned() != null) {
                 throw new IllegalStateException("消息路由不到队列");
             }
             if (confirm == null || !confirm.isAck()) {
