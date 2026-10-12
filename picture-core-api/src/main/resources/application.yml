@@ -1,0 +1,157 @@
+server:
+  port: 8123
+  servlet:
+    context-path: /api
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when_authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: ${MANAGEMENT_TRACING_SAMPLING_PROBABILITY:0.1}
+
+spring:
+  application:
+    name: picture-core-api
+  # 数据库配置
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/spt_picture}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 10MB
+  data:
+    redis:
+      port: ${REDIS_PORT:6379}
+      host: ${REDIS_HOST:127.0.0.1}
+      timeout: 5000
+      database: 0
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 1
+        default-requeue-rejected: false
+        missing-queues-fatal: false
+  flyway:
+    enabled: ${FLYWAY_ENABLED:true}
+    # Flyway migrations are the only supported schema initialization source.
+    # V1 must run on an empty database; existing databases must be migrated or
+    # explicitly baselined by the deployment operator before this application starts.
+    baseline-on-migrate: false
+    locations: classpath:db/migration
+    clean-disabled: true
+    # Use the physical MySQL connection for migrations.
+    url: ${DB_MIGRATION_URL:${spring.datasource.url}}
+    user: ${DB_MIGRATION_USERNAME:${spring.datasource.username}}
+    password: ${DB_MIGRATION_PASSWORD:${spring.datasource.password}}
+mybatis-plus:
+  global-config:
+    db-config:
+      logic-delete-field: isDelete # 全局逻辑删除字段名
+      logic-delete-value: 1 # 逻辑已删除值。可选，默认值为 1
+      logic-not-delete-value: 0 # 逻辑未删除值。可选，默认值为 0
+    enable-sql-runner: true
+  configuration:
+    map-underscore-to-camel-case: false
+    # 仅在开发环境输出日志
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /doc.html
+
+sa-token:
+  token-name: satoken-space
+  timeout: 2592000
+  is-concurrent: true
+  is-share: false
+  is-read-header: true
+  is-read-cookie: true
+
+picture:
+  websocket:
+    lock-ttl-ms: ${PICTURE_WS_LOCK_TTL_MS:30000}
+    lock-renew-ms: ${PICTURE_WS_LOCK_RENEW_MS:10000}
+    channel: ${PICTURE_WS_CHANNEL:picture:edit:events}
+  inbox:
+    lease-seconds: ${PICTURE_INBOX_LEASE_SECONDS:60}
+
+  async:
+    outbox-enabled: ${PICTURE_ASYNC_OUTBOX_ENABLED:true}
+    media-result-enabled: ${PICTURE_ASYNC_MEDIA_RESULT_ENABLED:true}
+    outbox-interval-ms: ${PICTURE_ASYNC_OUTBOX_INTERVAL_MS:500}
+    process-concurrency: ${PICTURE_ASYNC_PROCESS_CONCURRENCY:2}
+    batch-concurrency: ${PICTURE_ASYNC_BATCH_CONCURRENCY:2}
+    file-delete-concurrency: ${PICTURE_ASYNC_FILE_DELETE_CONCURRENCY:2}
+    search-index-concurrency: ${PICTURE_ASYNC_SEARCH_INDEX_CONCURRENCY:2}
+    index-maintenance-concurrency: ${PICTURE_ASYNC_INDEX_MAINTENANCE_CONCURRENCY:1}
+    outbox-retention-days: ${PICTURE_ASYNC_OUTBOX_RETENTION_DAYS:7}
+    consume-log-retention-days: ${PICTURE_ASYNC_CONSUME_LOG_RETENTION_DAYS:30}
+  search:
+    enabled: ${PICTURE_SEARCH_ENABLED:true}
+    mode: ${PICTURE_SEARCH_MODE:MYSQL}
+    elasticsearch:
+      endpoint: ${ELASTICSEARCH_ENDPOINT:http://localhost:9200}
+      username: ${ELASTICSEARCH_USERNAME:}
+      password: ${ELASTICSEARCH_PASSWORD:}
+      connect-timeout-ms: ${ELASTICSEARCH_CONNECT_TIMEOUT_MS:500}
+      socket-timeout-ms: ${ELASTICSEARCH_SOCKET_TIMEOUT_MS:1200}
+      index-prefix: ${ELASTICSEARCH_INDEX_PREFIX:picture_search}
+    max-page-size: ${PICTURE_SEARCH_MAX_PAGE_SIZE:20}
+    max-result-window: ${PICTURE_SEARCH_MAX_RESULT_WINDOW:10000}
+    shadow-sample-rate: ${PICTURE_SEARCH_SHADOW_SAMPLE_RATE:0.1}
+    internal-token: ${PICTURE_SEARCH_INTERNAL_TOKEN:change-me-internal}
+    remote-base-url: ${PICTURE_SEARCH_REMOTE_BASE_URL:http://localhost:8125}
+    reconcile-cron: ${PICTURE_SEARCH_RECONCILE_CRON:0 0 3 * * *}
+
+resilience4j:
+  retry:
+    instances:
+      pictureSearchRemote:
+        max-attempts: ${PICTURE_SEARCH_RETRY_MAX_ATTEMPTS:3}
+        wait-duration: ${PICTURE_SEARCH_RETRY_WAIT:200ms}
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+  circuitbreaker:
+    instances:
+      pictureSearchRemote:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+
+# Tencent Cloud COS is required by the file upload path.
+# Keep secrets outside the image and provide them through the deployment environment.
+cos:
+  client:
+    secretId: ${COS_SECRET_ID:}
+    secretKey: ${COS_SECRET_KEY:}
+    region: ${COS_REGION:ap-guangzhou}
+    bucketName: ${COS_BUCKET_NAME:}
+    host: ${COS_HOST:}

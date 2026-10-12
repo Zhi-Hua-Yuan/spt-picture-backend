@@ -1,0 +1,165 @@
+{{- $root := . }}
+{{- range $name := list "core" "media" "search" }}
+{{- $cfg := index $root.Values.images $name }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "picture.fullname" $root }}-{{ $name }}
+  labels:
+    {{- include "picture.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+spec:
+  replicas: {{ index $root.Values.replicaCount $name }}
+  selector:
+    matchLabels:
+      {{- include "picture.selectorLabels" $root | nindent 6 }}
+      app.kubernetes.io/component: {{ $name }}
+  template:
+    metadata:
+      labels:
+        {{- include "picture.selectorLabels" $root | nindent 8 }}
+        app.kubernetes.io/component: {{ $name }}
+    spec:
+      containers:
+        - name: {{ $name }}
+          image: "{{ $cfg.repository }}:{{ $cfg.tag }}"
+          imagePullPolicy: {{ $cfg.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ index $root.Values.service $name "port" }}
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 45
+            periodSeconds: 20
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: kubernetes
+            - name: RABBITMQ_HOST
+              value: {{ $root.Values.dependencies.rabbitmqHost | quote }}
+            - name: RABBITMQ_USERNAME
+              value: {{ $root.Values.dependencies.rabbitmqUsername | quote }}
+            - name: RABBITMQ_PASSWORD
+              value: {{ $root.Values.dependencies.rabbitmqPassword | quote }}
+            - name: FLYWAY_ENABLED
+              value: "true"
+            - name: PICTURE_SEARCH_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "picture.secretName" $root }}
+                  key: PICTURE_SEARCH_INTERNAL_TOKEN
+            - name: COS_SECRET_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "picture.secretName" $root }}
+                  key: COS_SECRET_ID
+            - name: COS_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "picture.secretName" $root }}
+                  key: COS_SECRET_KEY
+            - name: COS_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "picture.secretName" $root }}
+                  key: COS_REGION
+            - name: COS_BUCKET_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "picture.secretName" $root }}
+                  key: COS_BUCKET_NAME
+            - name: COS_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "picture.secretName" $root }}
+                  key: COS_HOST
+            {{- if eq $name "core" }}
+            - name: DB_URL
+              value: "jdbc:mysql://{{ $root.Values.dependencies.mysqlHost }}:3306/spt_picture"
+            - name: DB_USERNAME
+              value: picture_core
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "picture.secretName" $root }}
+                  key: CORE_DB_PASSWORD
+            - name: REDIS_HOST
+              value: {{ $root.Values.dependencies.redisHost | quote }}
+            - name: ELASTICSEARCH_ENDPOINT
+              value: "http://{{ $root.Values.dependencies.elasticsearchHost }}:9200"
+            - name: PICTURE_SEARCH_MODE
+              value: REMOTE
+            - name: PICTURE_SEARCH_REMOTE_BASE_URL
+              value: "http://{{ include "picture.fullname" $root }}-search:8125"
+            {{- else if eq $name "media" }}
+            - name: DB_URL
+              value: "jdbc:mysql://{{ $root.Values.dependencies.mysqlHost }}:3306/spt_picture_media"
+            - name: DB_USERNAME
+              value: picture_media
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "picture.secretName" $root }}
+                  key: MEDIA_DB_PASSWORD
+            - name: REDIS_HOST
+              value: {{ $root.Values.dependencies.redisHost | quote }}
+            {{- else }}
+            - name: DB_URL
+              value: "jdbc:mysql://{{ $root.Values.dependencies.mysqlHost }}:3306/spt_picture_search"
+            - name: DB_USERNAME
+              value: picture_search
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "picture.secretName" $root }}
+                  key: SEARCH_DB_PASSWORD
+            - name: ELASTICSEARCH_ENDPOINT
+              value: "http://{{ $root.Values.dependencies.elasticsearchHost }}:9200"
+            - name: PICTURE_CORE_BASE_URL
+              value: "http://{{ include "picture.fullname" $root }}-core:8123/api"
+            {{- end }}
+          resources:
+            {{- toYaml $root.Values.resources | nindent 12 }}
+---
+{{- end }}
+{{- if .Values.frontend.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "picture.fullname" . }}-frontend
+  labels:
+    {{- include "picture.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: {{ .Values.replicaCount.frontend }}
+  selector:
+    matchLabels:
+      {{- include "picture.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: frontend
+  template:
+    metadata:
+      labels:
+        {{- include "picture.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: "{{ .Values.images.frontend.repository }}:{{ .Values.images.frontend.tag }}"
+          imagePullPolicy: {{ .Values.images.frontend.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 15
+{{- end }}

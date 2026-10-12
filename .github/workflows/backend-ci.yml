@@ -1,0 +1,99 @@
+name: backend-ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout backend
+        uses: actions/checkout@v4
+
+      - name: Checkout frontend master
+        uses: actions/checkout@v4
+        with:
+          repository: Zhi-Hua-Yuan/yu-picture-frontend
+          ref: master
+          path: yu-picture-frontend
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: yu-picture-frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: yu-picture-frontend
+        run: npm ci && npm run build
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Verify backend
+        run: mvn -B -ntp verify
+
+      - name: Validate compose and Helm
+        run: |
+          docker compose -f docker-compose.milestone3.yml config
+          helm lint deploy/helm/picture -f deploy/helm/picture/values-demo.yaml
+          helm template picture deploy/helm/picture -f deploy/helm/picture/values-demo.yaml >/tmp/picture.yaml
+
+  kind-smoke:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout backend
+        uses: actions/checkout@v4
+
+      - name: Checkout frontend master
+        uses: actions/checkout@v4
+        with:
+          repository: Zhi-Hua-Yuan/yu-picture-frontend
+          ref: master
+          path: yu-picture-frontend
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Build local images
+        run: |
+          docker build -t picture-core-api:local --build-arg SERVICE=picture-core-api -f Dockerfile.service .
+          docker build -t picture-media-service:local --build-arg SERVICE=picture-media-service -f Dockerfile.service .
+          docker build -t picture-search-service:local --build-arg SERVICE=picture-search-service -f Dockerfile.service .
+          docker build -t yu-picture-frontend:local yu-picture-frontend
+
+      - name: Set up kind
+        uses: helm/kind-action@v1.10.0
+        with:
+          cluster_name: picture-ci
+
+      - name: Load images
+        run: |
+          kind load docker-image picture-core-api:local --name picture-ci
+          kind load docker-image picture-media-service:local --name picture-ci
+          kind load docker-image picture-search-service:local --name picture-ci
+          kind load docker-image yu-picture-frontend:local --name picture-ci
+
+      - name: Run chart smoke test
+        run: bash deploy/kind/smoke.sh

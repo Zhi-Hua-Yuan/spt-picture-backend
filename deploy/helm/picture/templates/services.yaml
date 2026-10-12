@@ -1,0 +1,35 @@
+{{- range $name, $cfg := dict "core" $.Values.service.core "media" $.Values.service.media "search" $.Values.service.search }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "picture.fullname" $ }}-{{ $name }}
+  labels:
+    {{- include "picture.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+spec:
+  selector:
+    {{- include "picture.selectorLabels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+  ports:
+    - name: http
+      port: {{ $cfg.port }}
+      targetPort: http
+---
+{{- end }}
+{{- if .Values.frontend.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "picture.fullname" . }}-frontend
+  labels:
+    {{- include "picture.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  selector:
+    {{- include "picture.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+  ports:
+    - name: http
+      port: {{ .Values.service.frontend.port }}
+      targetPort: http
+{{- end }}

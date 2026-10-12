@@ -1,0 +1,31 @@
+replicaCount:
+  core: 2
+  media: 2
+  search: 2
+  frontend: 2
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 2
+    memory: 2Gi
+
+secrets:
+  create: false
+  name: picture-secrets
+
+ingress:
+  enabled: true
+  className: nginx
+  host: picture.example.com
+
+monitoring:
+  serviceMonitor:
+    enabled: true
+  prometheusRule:
+    enabled: true
+
+autoscaling:
+  enabled: true

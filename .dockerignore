@@ -1,6 +1,16 @@
 # 排除Maven/Gradle目录
 target/*
 !target/*.jar
+!picture-contracts/target/
+!picture-contracts/target/*.jar
+!picture-shared-kernel/target/
+!picture-shared-kernel/target/*.jar
+!picture-core-api/target/
+!picture-core-api/target/*.jar
+!picture-media-service/target/
+!picture-media-service/target/*.jar
+!picture-search-service/target/
+!picture-search-service/target/*.jar
 node_modules/
 .git/
 .gitignore

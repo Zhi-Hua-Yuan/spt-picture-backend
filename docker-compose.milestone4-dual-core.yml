@@ -1,0 +1,5 @@
+services:
+  # Remove the host port so Compose can run two Core replicas.  They remain
+  # addressable through the service DNS name from Search and the other workers.
+  picture-core-api:
+    ports: !override []

@@ -1,0 +1,53 @@
+{{- if .Values.monitoring.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "picture.fullname" . }}
+  labels:
+    {{- include "picture.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "picture.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /api/actuator/prometheus
+      interval: {{ .Values.monitoring.serviceMonitor.interval }}
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_service_label_app_kubernetes_io_component]
+          targetLabel: service
+    - port: http
+      path: /actuator/prometheus
+      interval: {{ .Values.monitoring.serviceMonitor.interval }}
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_service_label_app_kubernetes_io_component]
+          targetLabel: service
+{{- end }}
+
+{{- if .Values.monitoring.prometheusRule.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "picture.fullname" . }}
+  labels:
+    {{- include "picture.labels" . | nindent 4 }}
+spec:
+  groups:
+    - name: picture.delivery
+      rules:
+        - alert: PictureServiceDown
+          expr: up{job=~"{{ include "picture.fullname" . }}.*"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Picture service is unavailable
+        - alert: PictureOutboxBacklog
+          expr: picture_outbox_pending > 1000
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Picture outbox backlog is growing
+{{- end }}

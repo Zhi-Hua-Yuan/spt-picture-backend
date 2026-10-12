@@ -8,6 +8,7 @@ target/
 application-prod.yml
 src/main/resources/application-local.yml
 .env
+*.log
 
 ### STS ###
 .apt_generated

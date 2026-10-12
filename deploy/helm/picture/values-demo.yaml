@@ -1,0 +1,26 @@
+images:
+  core: { repository: picture-core-api, tag: local, pullPolicy: Never }
+  media: { repository: picture-media-service, tag: local, pullPolicy: Never }
+  search: { repository: picture-search-service, tag: local, pullPolicy: Never }
+  frontend: { repository: yu-picture-frontend, tag: local, pullPolicy: Never }
+
+replicaCount:
+  core: 1
+  media: 1
+  search: 1
+  frontend: 1
+
+ingress:
+  enabled: false
+
+monitoring:
+  serviceMonitor:
+    enabled: false
+  prometheusRule:
+    enabled: false
+
+podDisruptionBudget:
+  enabled: false
+
+autoscaling:
+  enabled: false

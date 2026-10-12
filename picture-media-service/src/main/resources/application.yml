@@ -1,0 +1,67 @@
+server:
+  port: ${SERVER_PORT:8124}
+
+spring:
+  application:
+    name: picture-media-service
+  datasource:
+    url: ${MEDIA_DB_URL:${DB_URL:jdbc:mysql://localhost:3306/spt_picture_media}}
+    username: ${MEDIA_DB_USERNAME:${DB_USERNAME:picture_media}}
+    password: ${MEDIA_DB_PASSWORD:${DB_PASSWORD:change-me}}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    enabled: ${FLYWAY_ENABLED:true}
+    locations: classpath:db/migration/media
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      timeout: 5000
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 1
+        default-requeue-rejected: false
+        missing-queues-fatal: false
+
+mybatis-plus:
+  global-config:
+    db-config:
+      logic-delete-field: isDelete
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  configuration:
+    map-underscore-to-camel-case: false
+    log-impl: ''
+
+management:
+  endpoints.web.exposure.include: health,info,metrics,prometheus
+  endpoint.health.probes.enabled: true
+  metrics.tags.application: ${spring.application.name}
+  tracing.sampling.probability: ${MANAGEMENT_TRACING_SAMPLING_PROBABILITY:0.1}
+
+picture:
+  inbox.lease-seconds: ${PICTURE_INBOX_LEASE_SECONDS:60}
+  async:
+    outbox-enabled: ${PICTURE_ASYNC_OUTBOX_ENABLED:true}
+    process-enabled: ${PICTURE_ASYNC_PROCESS_ENABLED:true}
+    batch-enabled: ${PICTURE_ASYNC_BATCH_ENABLED:true}
+    file-delete-enabled: ${PICTURE_ASYNC_FILE_DELETE_ENABLED:true}
+    process-concurrency: ${PICTURE_ASYNC_PROCESS_CONCURRENCY:2}
+    batch-concurrency: ${PICTURE_ASYNC_BATCH_CONCURRENCY:2}
+    file-delete-concurrency: ${PICTURE_ASYNC_FILE_DELETE_CONCURRENCY:2}
+
+cos:
+  client:
+    secretId: ${COS_SECRET_ID:}
+    secretKey: ${COS_SECRET_KEY:}
+    region: ${COS_REGION:ap-guangzhou}
+    bucketName: ${COS_BUCKET_NAME:}
+    host: ${COS_HOST:}

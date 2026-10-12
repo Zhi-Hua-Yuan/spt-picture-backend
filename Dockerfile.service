@@ -1,0 +1,24 @@
+# Multi-stage image used by all three Milestone 3 deployable units.
+# Build with: docker build --build-arg SERVICE=picture-core-api -f Dockerfile.service .
+FROM maven:3.9.9-eclipse-temurin-17 AS build
+WORKDIR /workspace
+COPY pom.xml .
+COPY picture-contracts/pom.xml picture-contracts/pom.xml
+COPY picture-shared-kernel/pom.xml picture-shared-kernel/pom.xml
+COPY picture-core-api/pom.xml picture-core-api/pom.xml
+COPY picture-media-service/pom.xml picture-media-service/pom.xml
+COPY picture-search-service/pom.xml picture-search-service/pom.xml
+COPY . .
+ARG SERVICE=picture-core-api
+ARG BUILD_FROM_SOURCE=true
+RUN if [ "${BUILD_FROM_SOURCE}" = "true" ]; then mvn -B -ntp -DskipTests -Dmaven.test.skip=true -pl ${SERVICE} -am package; else echo "Using prebuilt ${SERVICE} artifact from build context"; fi
+
+FROM eclipse-temurin:17-jre
+ENV TZ=Asia/Shanghai
+WORKDIR /app
+ARG SERVICE=picture-core-api
+COPY --from=build /workspace/${SERVICE}/target/${SERVICE}-0.0.1-SNAPSHOT.jar /app/app.jar
+RUN useradd --system --create-home --uid 10001 appuser && chown -R appuser:appuser /app
+USER appuser
+EXPOSE 8123 8124 8125
+ENTRYPOINT ["java", "-XX:+ExitOnOutOfMemoryError", "-jar", "/app/app.jar"]
