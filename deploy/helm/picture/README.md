@@ -32,6 +32,19 @@ kubectl -n picture create secret generic picture-secrets \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
+If the GHCR packages are private, create the pull secret referenced by
+`values-prod.yaml` using a GitHub token that has package read permission. Keep
+this token outside Git:
+
+```bash
+kubectl -n picture create secret docker-registry ghcr-pull \
+  --docker-server=ghcr.io \
+  --docker-username='<github-user>' \
+  --docker-password='<github-token-with-read-packages>' \
+  --docker-email='<email>' \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
 ## Deploy an immutable release
 
 Use the Git SHA printed by the `Publish image summary` step. Overriding every

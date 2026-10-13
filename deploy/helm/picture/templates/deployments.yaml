@@ -20,6 +20,10 @@ spec:
         {{- include "picture.selectorLabels" $root | nindent 8 }}
         app.kubernetes.io/component: {{ $name }}
     spec:
+      {{- with $root.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: {{ $name }}
           image: "{{ $cfg.repository }}:{{ $cfg.tag }}"
@@ -149,6 +153,10 @@ spec:
         {{- include "picture.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: frontend
     spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: frontend
           image: "{{ .Values.images.frontend.repository }}:{{ .Values.images.frontend.tag }}"
