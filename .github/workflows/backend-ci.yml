@@ -56,6 +56,8 @@ jobs:
           docker compose -f docker-compose.milestone3.yml config
           helm lint deploy/helm/picture -f deploy/helm/picture/values-demo.yaml
           helm template picture deploy/helm/picture -f deploy/helm/picture/values-demo.yaml >/tmp/picture.yaml
+          helm lint deploy/helm/picture -f deploy/helm/picture/values-prod.yaml
+          helm template picture deploy/helm/picture -f deploy/helm/picture/values-prod.yaml >/tmp/picture-prod.yaml
 
   kind-smoke:
     needs: verify
@@ -101,3 +103,77 @@ jobs:
 
       - name: Run chart smoke test
         run: bash deploy/kind/smoke.sh
+
+  publish-images:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [verify, kind-smoke]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout backend
+        uses: actions/checkout@v4
+
+      - name: Checkout frontend master
+        uses: actions/checkout@v4
+        with:
+          repository: Zhi-Hua-Yuan/yu-picture-frontend
+          ref: master
+          path: yu-picture-frontend
+          token: ${{ secrets.FRONTEND_REPO_TOKEN }}
+          persist-credentials: false
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push release images
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          image_prefix="ghcr.io/$(printf '%s' "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+
+          build_and_push() {
+            local image_name="$1"
+            shift
+            docker build \
+              -t "${image_prefix}/${image_name}:${IMAGE_TAG}" \
+              -t "${image_prefix}/${image_name}:latest" \
+              "$@"
+            docker push "${image_prefix}/${image_name}:${IMAGE_TAG}"
+            docker push "${image_prefix}/${image_name}:latest"
+          }
+
+          build_and_push picture-core-api \
+            --build-arg SERVICE=picture-core-api \
+            -f Dockerfile.service .
+          build_and_push picture-media-service \
+            --build-arg SERVICE=picture-media-service \
+            -f Dockerfile.service .
+          build_and_push picture-search-service \
+            --build-arg SERVICE=picture-search-service \
+            -f Dockerfile.service .
+          build_and_push yu-picture-frontend yu-picture-frontend
+
+      - name: Publish image summary
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          image_prefix="ghcr.io/$(printf '%s' "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          {
+            echo "### Published images"
+            echo ""
+            echo "Tag: `${IMAGE_TAG}`"
+            echo ""
+            echo "- `${image_prefix}/picture-core-api:${IMAGE_TAG}`"
+            echo "- `${image_prefix}/picture-media-service:${IMAGE_TAG}`"
+            echo "- `${image_prefix}/picture-search-service:${IMAGE_TAG}`"
+            echo "- `${image_prefix}/yu-picture-frontend:${IMAGE_TAG}`"
+          } >> "${GITHUB_STEP_SUMMARY}"

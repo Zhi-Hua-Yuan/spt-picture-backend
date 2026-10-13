@@ -2,7 +2,7 @@
 
 一个基于 Spring Boot 3.5 + MyBatis-Plus 的图片管理与协作图库后端项目。
 
-> 当前文档对应里程碑 1：完成 Spring Boot 3.5、Jakarta、Springdoc OpenAPI 3、Sa-Token 会话兼容和单体运行基线。用户会话命名空间已升级，发布后需要重新登录。
+> 当前文档对应里程碑 5：完成模块化单体、三个独立部署单元、前后端交付链路和 Helm/Kind 冒烟验证。用户会话命名空间已升级，发布后需要重新登录。
 
 这个项目围绕“用户、图片、空间、成员权限”四个核心对象展开，支持公共图库、私有空间、团队空间、图片审核、对象存储上传、颜色检索、空间分析、WebSocket 协同编辑以及 AI 扩图等能力。
 
@@ -350,6 +350,12 @@ docker run -p 8123:8123 spt-picture-backend
 - 容器启动命令默认使用 `--spring.profiles.active=prod`
 - 生产环境配置位于 `src/main/resources/application-prod.yml`，敏感项通过环境变量注入
 
+## Kubernetes / Helm 部署
+
+后端 CI 会在 `master` 的验证和 Kind 冒烟测试全部通过后，将四个镜像推送到
+GHCR，并同时生成 Git SHA 和 `latest` 标签。生产部署、Secret 准备、Ingress
+和回滚命令见 [`deploy/helm/picture/README.md`](deploy/helm/picture/README.md)。
+
 ## 测试
 
 当前仓库包含的测试主要有：
@@ -393,7 +399,9 @@ mvn test
 
 ---
 
-如果你要继续完善这个项目，比较推荐下一步优先做两件事：
+当前推荐的后续工作是：
 
-1. 把配置拆分为 `local` / `prod` 两套环境
+1. 在测试 Kubernetes 集群使用 Git SHA 镜像完成一次 Helm 部署
 2. 补齐核心业务链路的接口测试与权限测试
+3. 配置监控、日志、数据库备份和密钥轮换
+4. 在有明确容量和隔离需求后，再推进领域数据库拆分

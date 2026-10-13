@@ -4,6 +4,14 @@ replicaCount:
   search: 2
   frontend: 2
 
+# Images are published by backend-ci to GHCR on every successful master build.
+# Override these tags with the immutable Git SHA during a release deployment.
+images:
+  core: { repository: ghcr.io/zhi-hua-yuan/picture-core-api, tag: latest, pullPolicy: IfNotPresent }
+  media: { repository: ghcr.io/zhi-hua-yuan/picture-media-service, tag: latest, pullPolicy: IfNotPresent }
+  search: { repository: ghcr.io/zhi-hua-yuan/picture-search-service, tag: latest, pullPolicy: IfNotPresent }
+  frontend: { repository: ghcr.io/zhi-hua-yuan/yu-picture-frontend, tag: latest, pullPolicy: IfNotPresent }
+
 resources:
   requests:
     cpu: 250m
