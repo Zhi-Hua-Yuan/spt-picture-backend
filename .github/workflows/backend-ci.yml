@@ -22,6 +22,8 @@ jobs:
           repository: Zhi-Hua-Yuan/yu-picture-frontend
           ref: master
           path: yu-picture-frontend
+          token: ${{ secrets.FRONTEND_REPO_TOKEN }}
+          persist-credentials: false
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -68,6 +70,8 @@ jobs:
           repository: Zhi-Hua-Yuan/yu-picture-frontend
           ref: master
           path: yu-picture-frontend
+          token: ${{ secrets.FRONTEND_REPO_TOKEN }}
+          persist-credentials: false
 
       - name: Set up Java
         uses: actions/setup-java@v4
