@@ -166,14 +166,15 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
+          set -euo pipefail
           image_prefix="ghcr.io/$(printf '%s' "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
           {
             echo "### Published images"
             echo ""
-            echo "Tag: `${IMAGE_TAG}`"
+            printf 'Tag: `%s`\n' "${IMAGE_TAG}"
             echo ""
-            echo "- `${image_prefix}/picture-core-api:${IMAGE_TAG}`"
-            echo "- `${image_prefix}/picture-media-service:${IMAGE_TAG}`"
-            echo "- `${image_prefix}/picture-search-service:${IMAGE_TAG}`"
-            echo "- `${image_prefix}/yu-picture-frontend:${IMAGE_TAG}`"
+            printf -- '- `%s/picture-core-api:%s`\n' "${image_prefix}" "${IMAGE_TAG}"
+            printf -- '- `%s/picture-media-service:%s`\n' "${image_prefix}" "${IMAGE_TAG}"
+            printf -- '- `%s/picture-search-service:%s`\n' "${image_prefix}" "${IMAGE_TAG}"
+            printf -- '- `%s/yu-picture-frontend:%s`\n' "${image_prefix}" "${IMAGE_TAG}"
           } >> "${GITHUB_STEP_SUMMARY}"
